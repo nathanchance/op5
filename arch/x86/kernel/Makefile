@@ -16,9 +16,10 @@ CFLAGS_REMOVE_ftrace.o = -pg
 CFLAGS_REMOVE_early_printk.o = -pg
 endif
 
-KASAN_SANITIZE_head$(BITS).o := n
-KASAN_SANITIZE_dumpstack.o := n
-KASAN_SANITIZE_dumpstack_$(BITS).o := n
+KASAN_SANITIZE_head$(BITS).o				:= n
+KASAN_SANITIZE_dumpstack.o				:= n
+KASAN_SANITIZE_dumpstack_$(BITS).o			:= n
+KASAN_SANITIZE_stacktrace.o				:= n
 
 CFLAGS_irq.o := -I$(src)/../include/asm/trace
 
