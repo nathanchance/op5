@@ -382,15 +382,18 @@ static int fb_notifier_callback(struct notifier_block *self, unsigned long event
 static irqreturn_t fpc1020_irq_handler(int irq, void *handle)
 {
 	struct fpc1020_data *fpc1020 = handle;
-	wake_lock_timeout(&fpc1020->ttw_wl, msecs_to_jiffies(FPC_TTW_HOLD_TIME));
 	sysfs_notify(&fpc1020->dev->kobj, NULL, dev_attr_irq.attr.name);
 
-	if (!fpc1020->screen_state) {
-		input_report_key(fpc1020->input_dev, KEY_FINGERPRINT, 1);
-		input_sync(fpc1020->input_dev);
-		input_report_key(fpc1020->input_dev, KEY_FINGERPRINT, 0);
-		input_sync(fpc1020->input_dev);
-	}
+	if (fpc1020->screen_state)
+		return IRQ_HANDLED;
+
+	wake_lock_timeout(&fpc1020->ttw_wl, msecs_to_jiffies(FPC_TTW_HOLD_TIME));
+
+	/* Report button input to trigger CPU boost */
+	input_report_key(fpc1020->input_dev, KEY_FINGERPRINT, 1);
+	input_sync(fpc1020->input_dev);
+	input_report_key(fpc1020->input_dev, KEY_FINGERPRINT, 0);
+	input_sync(fpc1020->input_dev);
 
 	return IRQ_HANDLED;
 }
