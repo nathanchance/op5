@@ -315,6 +315,8 @@ struct mdss_dsi_data {
 	 * mutex, clocks, regulator information, setup information
 	 */
 	struct dsi_shared_data *shared_data;
+	u32 *dbg_bus;
+	int dbg_bus_size;
 };
 
 /*
@@ -746,6 +748,9 @@ void mdss_dsi_set_burst_mode(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_set_reg(struct mdss_dsi_ctrl_pdata *ctrl, int off,
 	u32 mask, u32 val);
 int mdss_dsi_phy_pll_reset_status(struct mdss_dsi_ctrl_pdata *ctrl);
+
+void mdss_dsi_debug_bus_init(struct mdss_dsi_data *sdata);
+
 int mdss_dsi_check_panel_status(struct mdss_dsi_ctrl_pdata *ctrl, void *arg);
 
 int mdss_dsi_px_clk_req(struct mdss_panel_data *pdata, int enable);
