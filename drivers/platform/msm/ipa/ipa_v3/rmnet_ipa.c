@@ -3237,6 +3237,7 @@ static int __init ipa3_wwan_init(void)
 static void __exit ipa3_wwan_cleanup(void)
 {
 	int ret;
+
 	ipa3_qmi_cleanup();
 	mutex_destroy(&rmnet_ipa3_ctx->pipe_handle_guard);
 	mutex_destroy(&rmnet_ipa3_ctx->add_mux_channel_lock);
