@@ -746,6 +746,7 @@ void mdss_dsi_set_burst_mode(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_set_reg(struct mdss_dsi_ctrl_pdata *ctrl, int off,
 	u32 mask, u32 val);
 int mdss_dsi_phy_pll_reset_status(struct mdss_dsi_ctrl_pdata *ctrl);
+int mdss_dsi_check_panel_status(struct mdss_dsi_ctrl_pdata *ctrl, void *arg);
 
 int mdss_dsi_px_clk_req(struct mdss_panel_data *pdata, int enable);
 int mdss_dsi_disp_vci_en(struct mdss_panel_data *pdata, int enable);
