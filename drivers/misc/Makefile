@@ -68,3 +68,8 @@ obj-$(CONFIG_QPNP_MISC) 	+= qpnp-misc.o
 obj-$(CONFIG_MEMORY_STATE_TIME) += memory_state_time.o
 #add by xcb
 obj-$(CONFIG_BOOTLOADER_LOG)	+= bootloader_log.o
+
+# TODO: remove me b/62057517
+subdir-ccflags-y += \
+	-Wno-ignored-attributes \
+	-Wno-header-guard
