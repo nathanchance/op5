@@ -23,4 +23,4 @@ obj-$(CONFIG_MSM_VIDC_VMEM) += vmem/
 
 # TODO: remove me b/62058353
 subdir-ccflags-y += \
-	-Wno-frame-larger-than=
+	$(call cc-option,-Wno-frame-larger-than=)
