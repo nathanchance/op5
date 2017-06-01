@@ -269,6 +269,14 @@ int register_ipcrtr_af_init_notifier(struct notifier_block *nb);
  */
 int unregister_ipcrtr_af_init_notifier(struct notifier_block *nb);
 
+/**
+ * msm_ipc_router_set_ws_allowed() - To Enable/disable the wakeup source allowed
+ *					flag
+ * @flag: Flag to set/clear the wakeup soruce allowed
+ *
+ */
+void msm_ipc_router_set_ws_allowed(bool flag);
+
 #else
 
 struct msm_ipc_port *msm_ipc_router_create_port(
@@ -340,6 +348,8 @@ int unregister_ipcrtr_af_init_notifier(struct notifier_block *nb)
 {
 	return -ENODEV;
 }
+
+void msm_ipc_router_set_ws_allowed(bool flag) { }
 
 #endif
 
