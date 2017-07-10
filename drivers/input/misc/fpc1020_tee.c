@@ -483,33 +483,30 @@ static int fpc1020_probe(struct platform_device *pdev)
 	*   Goodix   1            0             1
 	*
 	*/
+
+	id0 = gpio_get_value(fpc1020->id0_gpio);
+	id1 = gpio_get_value(fpc1020->id1_gpio);
+	id2 = gpio_get_value(fpc1020->id2_gpio);
+
 	fpc1020->sensor_version = 0x02;
-	if (gpio_get_value(fpc1020->id0_gpio) && gpio_get_value(fpc1020->id1_gpio) && \
-	        gpio_get_value(fpc1020->id2_gpio)) {
+	if (id0 && id1 && id2) {
 		push_component_info(FINGERPRINTS, "fpc1245", "FPC(OF)");
 		fpc1020->sensor_version = 0x01;
-	} else if (gpio_get_value(fpc1020->id0_gpio) && !gpio_get_value(fpc1020->id1_gpio) && \
-	           !gpio_get_value(fpc1020->id2_gpio)) {
+	} else if (id0 && !id1 && !id2) {
 		push_component_info(FINGERPRINTS, "fpc1245", "FPC(Primax)");
 		fpc1020->sensor_version = 0x01;
-	} else if (!gpio_get_value(fpc1020->id0_gpio) && !gpio_get_value(fpc1020->id1_gpio) && \
-	           gpio_get_value(fpc1020->id2_gpio)) {
+	} else if (!id0 && !id1 && id2) {
 		push_component_info(FINGERPRINTS, "fpc1245", "FPC(truly)");
 		fpc1020->sensor_version = 0x01;
-	} else if (gpio_get_value(fpc1020->id0_gpio) && gpio_get_value(fpc1020->id1_gpio) && \
-	           !gpio_get_value(fpc1020->id2_gpio)) {
+	} else if (id0 && id1 && !id2) {
 		push_component_info(FINGERPRINTS, "fpc1263", "FPC(OF)");
-	} else if (!gpio_get_value(fpc1020->id0_gpio) && !gpio_get_value(fpc1020->id1_gpio) && \
-	           !gpio_get_value(fpc1020->id2_gpio)) {
+	} else if (!id0 && !id1 && !id2) {
 		push_component_info(FINGERPRINTS, "fpc1263", "FPC(Primax)");
-	} else if (!gpio_get_value(fpc1020->id0_gpio) && gpio_get_value(fpc1020->id1_gpio) && \
-	           gpio_get_value(fpc1020->id2_gpio)) {
+	} else if (!id0 && id1 && id2) {
 		push_component_info(FINGERPRINTS, "fpc1263", "FPC(truly)");
-	} else if (!gpio_get_value(fpc1020->id0_gpio) && gpio_get_value(fpc1020->id1_gpio) && \
-	           !gpio_get_value(fpc1020->id2_gpio)) {
+	} else if (!id0 && id1 && !id2) {
 		push_component_info(FINGERPRINTS, "fpc1263", "FPC(f/p)");
-	} else if (gpio_get_value(fpc1020->id0_gpio) && !gpio_get_value(fpc1020->id1_gpio) && \
-	           gpio_get_value(fpc1020->id2_gpio)) {
+	} else if (id0 && !id1 && id2) {
 		push_component_info(FINGERPRINTS, "fpc1263", "FPC(Goodix)");
 	} else {
 		push_component_info(FINGERPRINTS, "fpc", "FPC");
