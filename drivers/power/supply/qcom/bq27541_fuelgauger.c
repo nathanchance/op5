@@ -1067,7 +1067,7 @@ static bool get_dash_started(void)
 static void update_battery_soc_work(struct work_struct *work)
 {
 	if (is_usb_pluged()) {
-		schedule_delayed_work(
+		queue_delayed_work(system_power_efficient_wq,
 				&bq27541_di->battery_soc_work,
 				msecs_to_jiffies(BATTERY_SOC_UPDATE_MS));
 		if (get_dash_started())
@@ -1085,7 +1085,8 @@ static void update_battery_soc_work(struct work_struct *work)
 	bq27541_get_battery_soc();
 	bq27541_get_batt_remaining_capacity();
 	bq27541_set_allow_reading(false);
-	schedule_delayed_work(&bq27541_di->battery_soc_work,
+	queue_delayed_work(system_power_efficient_wq,
+                &bq27541_di->battery_soc_work,
 			msecs_to_jiffies(BATTERY_SOC_UPDATE_MS));
 }
 
@@ -1163,7 +1164,8 @@ static void bq27541_hw_config(struct work_struct *work)
 		/* Add for retry when config fail */
 		di->retry_count--;
 		if (di->retry_count > 0)
-			schedule_delayed_work(&di->hw_config, HZ);
+			queue_delayed_work(system_power_efficient_wq,
+                                &di->hw_config, HZ);
 		else
 			bq27541_registered = true;
 
@@ -1198,7 +1200,7 @@ static void bq27541_hw_config(struct work_struct *work)
 	pr_info("DEVICE_TYPE is 0x%02X, FIRMWARE_VERSION is 0x%02X\n",
 			type, fw_ver);
 	pr_info("Complete bq27541 configuration 0x%02X\n", flags);
-	schedule_delayed_work(
+	queue_delayed_work(system_power_efficient_wq,
 		&di->modify_soc_smooth_parameter,
 		SET_BQ_PARAM_DELAY_MS);
 }
@@ -1833,8 +1835,10 @@ static int bq27541_battery_probe(struct i2c_client *client,
 	INIT_DELAYED_WORK(&di->modify_soc_smooth_parameter,
 		bq_modify_soc_smooth_parameter);
 	INIT_DELAYED_WORK(&di->battery_soc_work, update_battery_soc_work);
-	schedule_delayed_work(&di->hw_config, BQ27541_INIT_DELAY);
-	schedule_delayed_work(&di->battery_soc_work, BATTERY_SOC_UPDATE_MS);
+	queue_delayed_work(system_power_efficient_wq,
+                &di->hw_config, BQ27541_INIT_DELAY);
+	queue_delayed_work(system_power_efficient_wq,
+                &di->battery_soc_work, BATTERY_SOC_UPDATE_MS);
 	pr_info("probe sucdess\n");
 	check_bat_present(di);
 	return 0;
@@ -1919,7 +1923,8 @@ static int bq27541_battery_resume(struct device *dev)
 				&(update_pre_capacity_data.work),
 				msecs_to_jiffies(1000));
 	}
-	schedule_delayed_work(&bq27541_di->battery_soc_work,
+	queue_delayed_work(system_power_efficient_wq,
+                &bq27541_di->battery_soc_work,
 			msecs_to_jiffies(RESUME_SCHDULE_SOC_UPDATE_WORK_MS));
 	return 0;
 }
