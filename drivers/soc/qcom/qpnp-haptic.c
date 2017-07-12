@@ -302,6 +302,9 @@ struct qpnp_hap {
 	enum qpnp_hap_high_z		lra_high_z;
 	u32				timeout_ms;
 	u32				vmax_mv;
+#ifdef CONFIG_CUSTOM_ROM
+	u32				vmax_default_mv;
+#endif
 	u32				ilim_ma;
 	u32				sc_deb_cycles;
 	u32				int_pwm_freq_khz;
@@ -1097,6 +1100,30 @@ static ssize_t qpnp_hap_vmax_store(struct device *dev,
 	return count;
 }
 
+#ifdef CONFIG_CUSTOM_ROM
+static ssize_t qpnp_hap_vmax_default(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct timed_output_dev *timed_dev = dev_get_drvdata(dev);
+	struct qpnp_hap *hap = container_of(timed_dev, struct qpnp_hap,
+					 timed_dev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", hap->vmax_default_mv);
+}
+
+static ssize_t qpnp_hap_vmax_max(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", QPNP_HAP_VMAX_MAX_MV);
+}
+
+static ssize_t qpnp_hap_vmax_min(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", QPNP_HAP_VMAX_MIN_MV);
+}
+#endif
+
 /* sysfs show for wave form update */
 static ssize_t qpnp_hap_wf_update_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -1407,9 +1434,16 @@ static struct device_attribute qpnp_hap_attrs[] = {
 	__ATTR(rf_hz, (S_IRUGO | S_IWUSR | S_IWGRP),
 			qpnp_hap_rf_hz_show,
 			qpnp_hap_rf_hz_store),
+#ifdef CONFIG_CUSTOM_ROM
+	__ATTR(vtg_level, (S_IRUGO | S_IWUSR), qpnp_hap_vmax_show, qpnp_hap_vmax_store),
+	__ATTR(vtg_default, S_IRUGO, qpnp_hap_vmax_default, NULL),
+	__ATTR(vtg_max, S_IRUGO, qpnp_hap_vmax_max, NULL),
+	__ATTR(vtg_min, S_IRUGO, qpnp_hap_vmax_min, NULL),
+#else
 	__ATTR(vmax, (S_IRUGO | S_IWUSR | S_IWGRP),
 			qpnp_hap_vmax_show,
 			qpnp_hap_vmax_store),
+#endif
 	__ATTR(wf_s0, 0664, qpnp_hap_wf_s0_show, qpnp_hap_wf_s0_store),
 	__ATTR(wf_s1, 0664, qpnp_hap_wf_s1_show, qpnp_hap_wf_s1_store),
 	__ATTR(wf_s2, 0664, qpnp_hap_wf_s2_show, qpnp_hap_wf_s2_store),
@@ -2204,9 +2238,15 @@ static int qpnp_hap_parse_dt(struct qpnp_hap *hap)
 	}
 
 	hap->vmax_mv = QPNP_HAP_VMAX_MAX_MV;
+#ifdef CONFIG_CUSTOM_ROM
+	hap->vmax_default_mv = QPNP_HAP_VMAX_MAX_MV;
+#endif
 	rc = of_property_read_u32(pdev->dev.of_node, "qcom,vmax-mv", &temp);
 	if (!rc) {
 		hap->vmax_mv = temp;
+#ifdef CONFIG_CUSTOM_ROM
+		hap->vmax_default_mv = temp;
+#endif
 	} else if (rc != -EINVAL) {
 		dev_err(&pdev->dev, "Unable to read vmax\n");
 		return rc;
