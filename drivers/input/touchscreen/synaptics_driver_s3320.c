@@ -46,6 +46,10 @@
 #include <linux/timer.h>
 #include <linux/time.h>
 
+#ifdef CONFIG_BOEFFLA_TOUCH_KEY_CONTROL
+#include <linux/boeffla_touchkey_control.h>
+#endif
+
 #ifdef CONFIG_FB
 #include <linux/fb.h>
 #include <linux/notifier.h>
@@ -1586,6 +1590,9 @@ void int_touch(void)
 		}
 
 		if (finger_status) {
+#ifdef CONFIG_BOEFFLA_TOUCH_KEY_CONTROL
+			btkc_touch_start();
+#endif
 			input_mt_slot(ts->input_dev, i);
 			input_mt_report_slot_state(ts->input_dev, MT_TOOL_FINGER, finger_status);
 			input_report_key(ts->input_dev, BTN_TOOL_FINGER, 1);
@@ -1638,6 +1645,9 @@ void int_touch(void)
 	last_status = current_status & 0x02;
 
 	if (finger_num == 0/* && last_status && (check_key <= 1)*/) {
+#ifdef CONFIG_BOEFFLA_TOUCH_KEY_CONTROL
+		btkc_touch_stop();
+#endif
 		input_report_key(ts->input_dev, BTN_TOOL_FINGER, 0);
 		s3320_stop_buttons = false;
 
@@ -1699,6 +1709,9 @@ static void int_key_report_s3508(struct synaptics_ts_data *ts)
 		if ((button_key & BUTTON_LEFT) && !(ts->pre_btn_state & BUTTON_LEFT) && !s3320_stop_buttons) {
 			input_report_key(ts->input_dev, keycode_left, 1);
 			input_sync(ts->input_dev);
+#ifdef CONFIG_BOEFFLA_TOUCH_KEY_CONTROL
+			btkc_touch_button();
+#endif
 		} else if (!(button_key & BUTTON_LEFT) && (ts->pre_btn_state & BUTTON_LEFT)) {
 			input_report_key(ts->input_dev, keycode_left, 0);
 			input_sync(ts->input_dev);
@@ -1707,6 +1720,9 @@ static void int_key_report_s3508(struct synaptics_ts_data *ts)
 		if ((button_key & BUTTON_RIGHT) && !(ts->pre_btn_state & BUTTON_RIGHT) && !s3320_stop_buttons) {
 			input_report_key(ts->input_dev, keycode_right, 1);
 			input_sync(ts->input_dev);
+#ifdef CONFIG_BOEFFLA_TOUCH_KEY_CONTROL
+			btkc_touch_button();
+#endif
 		} else if (!(button_key & BUTTON_RIGHT) && (ts->pre_btn_state & BUTTON_RIGHT)) {
 			input_report_key(ts->input_dev, keycode_right, 0);
 			input_sync(ts->input_dev);
