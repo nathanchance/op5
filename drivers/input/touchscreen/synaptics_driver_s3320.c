@@ -160,10 +160,10 @@ struct test_header {
 #define KEY_DOUBLE_TAP              KEY_WAKEUP // double tap to wake
 #define KEY_GESTURE_CIRCLE          250 // draw circle to lunch camera
 #define KEY_GESTURE_TWO_SWIPE       251 // swipe two finger vertically to play/pause
-#define KEY_GESTURE_UP_ARROW        252 // draw up arrow to toggle flashlight
+#define KEY_GESTURE_UP_ARROW        255 // draw up arrow to toggle flashlight
 #define KEY_GESTURE_LEFT_ARROW      253 // draw left arrow for previous track
 #define KEY_GESTURE_RIGHT_ARROW     254 // draw right arrow for next track
-#define KEY_GESTURE_DOWN_ARROW      255 // draw down arrow to toggle flashlight
+#define KEY_GESTURE_DOWN_ARROW      252 // draw down arrow to toggle flashlight
 #define KEY_GESTURE_SWIPE_RIGHT     KEY_F5
 #define KEY_GESTURE_SWIPE_LEFT      KEY_F6
 #define KEY_GESTURE_SWIPE_DOWN      KEY_F7
