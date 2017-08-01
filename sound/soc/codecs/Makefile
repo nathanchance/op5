@@ -441,3 +441,7 @@ snd-soc-tfa98xx-objs += tfa9891/tfa9887_init.o
 
 obj-y += sdm660_cdc/
 obj-y += msm_sdw/
+
+# TODO: remove me b/62058353
+subdir-ccflags-y += \
+	-Wno-enum-conversion
