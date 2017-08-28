@@ -4728,34 +4728,30 @@ static int fb_notifier_callback(struct notifier_block *self, unsigned long event
 
 	struct synaptics_ts_data *ts = container_of(self, struct synaptics_ts_data, fb_notif);
 
-	if(FB_EARLY_EVENT_BLANK != event && FB_EVENT_BLANK != event)
-	return 0;
-	if((evdata) && (evdata->data) && (ts) && (ts->client))
-	{
-		blank = evdata->data;
-		TPD_DEBUG("%s blank[%d],event[0x%lx]\n", __func__,*blank,event);
+	if (FB_EARLY_EVENT_BLANK != event && FB_EVENT_BLANK != event)
+		return 0;
 
-		if((*blank == FB_BLANK_UNBLANK/* || *blank == FB_BLANK_VSYNC_SUSPEND || *blank == FB_BLANK_NORMAL*/)\
-            //&& (event == FB_EVENT_BLANK ))
-		 && (event == FB_EARLY_EVENT_BLANK ))
-		{
-			if (ts->is_suspended == 1)
-			{
+	if (evdata && evdata->data && ts && ts->client) {
+		blank = evdata->data;
+		TPD_DEBUG("%s blank[%d], event[0x%lx]\n", __func__, *blank, event);
+
+		if (*blank == FB_BLANK_UNBLANK && event == FB_EARLY_EVENT_BLANK) {
+			s3320_stop_buttons = false;
+			if (ts->is_suspended) {
 				TPD_DEBUG("%s going TP resume start\n", __func__);
 				ts->is_suspended = 0;
-				queue_delayed_work(get_base_report, &ts->base_work,msecs_to_jiffies(80));
+				queue_delayed_work(get_base_report, &ts->base_work, msecs_to_jiffies(80));
 				synaptics_ts_resume(&ts->client->dev);
 				//atomic_set(&ts->is_stop,0);
 				TPD_DEBUG("%s going TP resume end\n", __func__);
 			}
-		}else if( *blank == FB_BLANK_POWERDOWN && (event == FB_EARLY_EVENT_BLANK )){
-			if (ts->is_suspended == 0){
+		} else if (*blank == FB_BLANK_POWERDOWN && event == FB_EARLY_EVENT_BLANK) {
+			if (!ts->is_suspended) {
 				TPD_DEBUG("%s : going TP suspend start\n", __func__);
 				ts->is_suspended = 1;
-				atomic_set(&ts->is_stop,1);
-					if(!(ts->gesture_enable)){
-						touch_disable(ts);
-					}
+				atomic_set(&ts->is_stop, 1);
+				if (!ts->gesture_enable)
+					touch_disable(ts);
 				synaptics_ts_suspend(&ts->client->dev);
 				TPD_DEBUG("%s : going TP suspend end\n", __func__);
 			}
