@@ -5206,6 +5206,7 @@ static int fb_notifier_callback(struct notifier_block *self,
 
 		if ((*blank == FB_BLANK_UNBLANK)
 		 && (event == FB_EARLY_EVENT_BLANK)) {
+			s3320_stop_buttons = false;
 			if (gesture_flag == 1) {
 				ts->gesture_enable = 0;
 				DouTap_gesture = 0;
