@@ -5036,6 +5036,7 @@ static int fb_notifier_callback(struct notifier_block *self, unsigned long event
 		if ((*blank == FB_BLANK_UNBLANK/* || *blank == FB_BLANK_VSYNC_SUSPEND || *blank == FB_BLANK_NORMAL*/)\
 		        //&& (event == FB_EVENT_BLANK ))
 		        && (event == FB_EARLY_EVENT_BLANK)) {
+			s3320_stop_buttons = false;
 			if (ts->is_suspended == 1) {
 				TPD_DEBUG("%s going TP resume start\n", __func__);
 				ts->is_suspended = 0;
