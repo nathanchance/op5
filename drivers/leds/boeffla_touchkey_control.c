@@ -105,6 +105,8 @@ static int lcd_notifier_callback(struct notifier_block *this,
 			cancel_delayed_work(&led_work);
 			break;
 
+/* OxygenOS: No touchkey LED when unlocking the screen with fingerprint sensor
+
 		case LCD_EVENT_ON_START:
 			pr_debug("Boeffla touch key control: screen on detected");
 
@@ -118,6 +120,7 @@ static int lcd_notifier_callback(struct notifier_block *this,
 				cancel_delayed_work(&led_work);
 				schedule_delayed_work(&led_work, msecs_to_jiffies(btkc_timeout));
 			}
+*/
 
 		default:
 			break;
