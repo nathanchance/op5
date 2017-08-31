@@ -646,6 +646,18 @@ ifdef CONFIG_CC_WERROR
 KBUILD_CFLAGS	+= -Werror
 endif
 
+###########################
+# FLASH OPTMIZATION SETUP #
+###########################
+
+KBUILD_CFLAGS	+= -g0 -DNDEBUG \
+		   -fgraphite-identity \
+		   -fivopts \
+		   -floop-nest-optimize \
+		   -ftree-loop-distribution \
+		   -ftree-loop-distribute-patterns \
+		   -ftree-vectorize
+
 # Needed to unbreak GCC 7.x and above
 KBUILD_CFLAGS   += $(call cc-option,-fno-store-merging,)
 

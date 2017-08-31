@@ -30,6 +30,17 @@ $(warning LSE atomics not supported by binutils)
   endif
 endif
 
+###########################
+# FLASH OPTMIZATION SETUP #
+###########################
+
+# Optimize for Kryo 280
+ARM64_ARCH_OPT	:= -mcpu=cortex-a73+crypto -mtune=cortex-a73
+
+# If for some reason compiling with a toolchain that supports neither mcpu or
+# mtune (in which case, wtf?), don't tune at all (march can break assembly)
+KBUILD_CFLAGS	+= $(call cc-option,$(ARM64_ARCH_OPT),)
+
 KBUILD_CFLAGS	+= -mgeneral-regs-only $(lseinstr)
 KBUILD_CFLAGS	+= -fno-pic
 KBUILD_CFLAGS	+= $(call cc-option, -mpc-relative-literal-loads)
