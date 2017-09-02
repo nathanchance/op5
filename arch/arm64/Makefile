@@ -35,7 +35,7 @@ endif
 ###########################
 
 # Optimize for Kryo 280
-ARM64_ARCH_OPT	:= -mcpu=cortex-a73+crypto -mtune=cortex-a73
+ARM64_ARCH_OPT	:= -mcpu=cortex-a73+crypto+crc -mtune=cortex-a73
 
 # If for some reason compiling with a toolchain that supports neither mcpu or
 # mtune (in which case, wtf?), don't tune at all (march can break assembly)
