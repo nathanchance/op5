@@ -65,7 +65,13 @@ void tracectr_notifier(void *ignore, bool preempt,
 {
 	u32 cnten_val;
 	int current_pid;
-	u32 cpu = task_thread_info(next)->cpu;
+	u32 cpu;
+
+#ifdef CONFIG_THREAD_INFO_IN_TASK
+	cpu = next->cpu;
+#else
+	cpu = task_thread_info(next)->cpu;
+#endif
 
 	if (tp_pid_state != 1)
 		return;
