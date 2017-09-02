@@ -1,6 +1,6 @@
 VERSION = 4
 PATCHLEVEL = 4
-SUBLEVEL = 85
+SUBLEVEL = 86
 EXTRAVERSION =
 NAME = Blurry Fish Butt
 
@@ -643,6 +643,18 @@ else
 KBUILD_CFLAGS   += -O2
 endif
 endif
+
+###########################
+# FLASH OPTMIZATION SETUP #
+###########################
+
+KBUILD_CFLAGS	+= -g0 -DNDEBUG \
+		   -fgraphite-identity \
+		   -fivopts \
+		   -floop-nest-optimize \
+		   -ftree-loop-distribution \
+		   -ftree-loop-distribute-patterns \
+		   -ftree-vectorize
 
 # Disable all maybe-uninitialized warnings
 KBUILD_CFLAGS	+= $(call cc-disable-warning,maybe-uninitialized,)
