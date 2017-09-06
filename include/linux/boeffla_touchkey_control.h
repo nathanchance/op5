@@ -33,7 +33,7 @@
 #define LED_ON				1
 #define LED_OFF				0
 
-#define BTK_CONTROL_VERSION 	"1.3.0"
+#define BTK_CONTROL_VERSION 	"1.3.1"
 
 
 /*****************************************/
