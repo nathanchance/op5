@@ -5,6 +5,7 @@
 #include <asm/cacheflush.h>
 #include <asm/cpufeature.h>
 #include <asm/debug-monitors.h>
+#include <asm/exec.h>
 #include <asm/pgtable.h>
 #include <asm/memory.h>
 #include <asm/mmu_context.h>
@@ -95,17 +96,12 @@ int cpu_suspend(unsigned long arg, int (*fn)(unsigned long))
 		cpu_uninstall_idmap();
 
 		/*
-		 * Restore per-cpu offset before any kernel
-		 * subsystem relying on it has a chance to run.
-		 */
-		set_my_cpu_offset(per_cpu_offset(smp_processor_id()));
-
-		/*
 		 * PSTATE was not saved over suspend/resume, re-enable any
 		 * detected features that might not have been set correctly.
 		 */
 		asm(ALTERNATIVE("nop", SET_PSTATE_PAN(1), ARM64_HAS_PAN,
 				CONFIG_ARM64_PAN));
+		uao_thread_switch(current);
 
 		/*
 		 * Restore HW breakpoint registers to sane values

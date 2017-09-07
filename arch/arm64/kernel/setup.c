@@ -361,6 +361,19 @@ void __init setup_arch(char **cmdline_p)
 	smp_init_cpus();
 	smp_build_mpidr_hash();
 
+#ifdef CONFIG_ARM64_SW_TTBR0_PAN
+	/*
+	 * Make sure thread_info.ttbr0 always generates translation
+	 * faults in case uaccess_enable() is inadvertently called by the init
+	 * thread.
+	 */
+#ifdef CONFIG_THREAD_INFO_IN_TASK
+	init_task.thread_info.ttbr0 = virt_to_phys(empty_zero_page);
+#else
+	init_thread_info.ttbr0 = virt_to_phys(empty_zero_page);
+#endif
+#endif
+
 #ifdef CONFIG_VT
 #if defined(CONFIG_VGA_CONSOLE)
 	conswitchp = &vga_con;
