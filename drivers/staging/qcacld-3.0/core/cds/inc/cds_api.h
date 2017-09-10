@@ -75,18 +75,6 @@ enum cds_driver_state {
 #define __CDS_IS_DRIVER_STATE(_state, _mask) (((_state) & (_mask)) == (_mask))
 
 /**
- * enum cds_fw_state - Firmware state
- * @CDS_FW_STATE_UNINITIALIZED: Firmware is in uninitialized state.
- * CDS_FW_STATE_DOWN: Firmware is down.
- */
-enum cds_fw_state {
-	CDS_FW_STATE_UNINITIALIZED = 0,
-	CDS_FW_STATE_DOWN,
-};
-
-#define __CDS_IS_FW_STATE(_state, _mask) (((_state) & (_mask)) == (_mask))
-
-/**
  * struct cds_sme_cbacks - list of sme functions registered with
  * CDS
  * @sme_get_valid_channels: gets the valid channel list for
@@ -116,39 +104,6 @@ struct cds_dp_cbacks {
 void cds_set_driver_state(enum cds_driver_state);
 void cds_clear_driver_state(enum cds_driver_state);
 enum cds_driver_state cds_get_driver_state(void);
-
-/**
- * cds_set_fw_state() - Set current firmware state
- * @state:	Firmware state to be set to.
- *
- * This API sets firmware state to state. This API only sets the state and
- * doesn't clear states, please make sure to use cds_clear_firmware_state
- * to clear any state if required.
- *
- * Return: None
- */
-void cds_set_fw_state(enum cds_fw_state);
-
-/**
- * cds_clear_fw_state() - Clear current fw state
- * @state:	Driver state to be cleared.
- *
- * This API clears fw state. This API only clears the state, please make
- * sure to use cds_set_fw_state to set any new states.
- *
- * Return: None
- */
-void cds_clear_fw_state(enum cds_fw_state);
-
-/**
- * cds_get_fw_state() - Get current firmware state
- *
- * This API returns current firmware state stored in global context.
- *
- * Return: Firmware state enum
- */
-enum cds_fw_state cds_get_fw_state(void);
-
 
 /**
  * cds_is_driver_loading() - Is driver load in progress
@@ -197,18 +152,6 @@ static inline bool cds_is_load_or_unload_in_progress(void)
 
 	return __CDS_IS_DRIVER_STATE(state, CDS_DRIVER_STATE_LOADING) ||
 		__CDS_IS_DRIVER_STATE(state, CDS_DRIVER_STATE_UNLOADING);
-}
-
-/**
- * cds_is_fw_down() - Is FW down or not
- *
- * Return: true if FW is down and false otherwise.
- */
-static inline bool cds_is_fw_down(void)
-{
-	enum cds_fw_state state = cds_get_fw_state();
-
-	return __CDS_IS_FW_STATE(state, BIT(CDS_FW_STATE_DOWN));
 }
 
 /**
@@ -318,7 +261,7 @@ bool cds_is_packet_log_enabled(void);
 
 uint64_t cds_get_monotonic_boottime(void);
 
-void cds_trigger_recovery(void);
+void cds_trigger_recovery(bool);
 
 void cds_set_wakelock_logging(bool value);
 bool cds_is_wakelock_enabled(void);
@@ -341,6 +284,7 @@ void cds_set_fatal_event(bool value);
 void cds_wlan_flush_host_logs_for_fatal(void);
 
 void cds_init_log_completion(void);
+void cds_deinit_log_completion(void);
 QDF_STATUS cds_flush_logs(uint32_t is_fatal,
 		uint32_t indicator,
 		uint32_t reason_code,
