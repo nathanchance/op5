@@ -1525,8 +1525,7 @@ static void hdmi_tx_hdcp_cb(void *ptr, enum hdcp_states status)
 
 	hdmi_ctrl->hdcp_status = status;
 
-	queue_delayed_work(hdmi_ctrl->workq, &hdmi_ctrl->hdcp_cb_work,
-						msecs_to_jiffies(250));
+	queue_delayed_work(hdmi_ctrl->workq, &hdmi_ctrl->hdcp_cb_work, HZ/4);
 }
 
 static inline bool hdmi_tx_is_stream_shareable(struct hdmi_tx_ctrl *hdmi_ctrl)
@@ -2192,6 +2191,7 @@ static int hdmi_tx_read_sink_info(struct hdmi_tx_ctrl *hdmi_ctrl)
 	int status = 0;
 	void *data;
 	struct dss_io_data *io;
+	u32 sink_max_pclk;
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -2231,16 +2231,22 @@ static int hdmi_tx_read_sink_info(struct hdmi_tx_ctrl *hdmi_ctrl)
 	/* parse edid if a valid edid buffer is present */
 	if (hdmi_ctrl->custom_edid || !hdmi_ctrl->sim_mode) {
 		status = hdmi_edid_parser(data);
-		if (status)
+		if (status) {
 			DEV_ERR("%s: edid parse failed\n", __func__);
-		else
+		} else {
 			/*
-			 * Updata HDMI max supported TMDS clock, consider
-			 * both sink and source capicity.
+			 * Update HDMI max supported TMDS clock, consider
+			 * both sink and source capacity. For DVI sink,
+			 * could not get max TMDS clock from EDID, so just
+			 * use source capacity.
 			 */
-			hdmi_edid_set_max_pclk_rate(data,
-			  min(hdmi_edid_get_sink_caps_max_tmds_clk(data) / 1000,
-			      hdmi_ctrl->max_pclk_khz));
+			sink_max_pclk =
+				hdmi_edid_get_sink_caps_max_tmds_clk(data);
+			if (sink_max_pclk != 0)
+				hdmi_edid_set_max_pclk_rate(data,
+				  min(sink_max_pclk / 1000,
+				      hdmi_ctrl->max_pclk_khz));
+		}
 	}
 bail:
 	if (hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_DDC_PM, false))
@@ -3994,7 +4000,7 @@ static int hdmi_tx_post_evt_handle_resume(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 		reinit_completion(&hdmi_ctrl->hpd_int_done);
 		timeout = wait_for_completion_timeout(
-			&hdmi_ctrl->hpd_int_done, msecs_to_jiffies(100));
+			&hdmi_ctrl->hpd_int_done, HZ/10);
 		if (!timeout) {
 			pr_debug("cable removed during suspend\n");
 			hdmi_tx_send_cable_notification(hdmi_ctrl, 0, false);

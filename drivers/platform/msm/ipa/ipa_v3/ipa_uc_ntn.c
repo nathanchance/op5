@@ -216,7 +216,7 @@ static int ipa3_uc_send_ntn_setup_pipe_cmd(
 	result = ipa3_uc_send_cmd((u32)(cmd.phys_base),
 				IPA_CPU_2_HW_CMD_OFFLOAD_CHANNEL_SET_UP,
 				IPA_HW_2_CPU_OFFLOAD_CMD_STATUS_SUCCESS,
-				false, IPA_TIMEOUT(10));
+				false, 10*HZ);
 	if (result)
 		result = -EFAULT;
 
@@ -377,7 +377,7 @@ int ipa3_tear_down_uc_offload_pipes(int ipa_ep_idx_ul,
 	result = ipa3_uc_send_cmd((u32)(cmd.phys_base),
 				IPA_CPU_2_HW_CMD_OFFLOAD_TEAR_DOWN,
 				IPA_HW_2_CPU_OFFLOAD_CMD_STATUS_SUCCESS,
-				false, IPA_TIMEOUT(10));
+				false, 10*HZ);
 	if (result) {
 		IPAERR("fail to tear down ul pipe\n");
 		result = -EFAULT;
@@ -393,7 +393,7 @@ int ipa3_tear_down_uc_offload_pipes(int ipa_ep_idx_ul,
 	result = ipa3_uc_send_cmd((u32)(cmd.phys_base),
 				IPA_CPU_2_HW_CMD_OFFLOAD_TEAR_DOWN,
 				IPA_HW_2_CPU_OFFLOAD_CMD_STATUS_SUCCESS,
-				false, IPA_TIMEOUT(10));
+				false, 10*HZ);
 	if (result) {
 		IPAERR("fail to tear down ul pipe\n");
 		result = -EFAULT;

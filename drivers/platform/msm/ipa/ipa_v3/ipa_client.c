@@ -106,7 +106,7 @@ int ipa3_disable_data_path(u32 clnt_hdl)
 		if (ipa3_ctx->apply_rg10_wa && ipa3_uc_state_check()) {
 			IPADBG("uC is not loaded yet, waiting...\n");
 			res = wait_for_completion_timeout(
-				&ipa3_ctx->uc_loaded_completion_obj, IPA_TIMEOUT(60));
+				&ipa3_ctx->uc_loaded_completion_obj, 60 * HZ);
 			if (res == 0)
 				IPADBG("timeout waiting for uC to load\n");
 		}
@@ -857,6 +857,8 @@ static int ipa3_reset_with_open_aggr_frame_wa(u32 clnt_hdl,
 	struct gsi_xfer_elem xfer_elem;
 	int i;
 	int aggr_active_bitmap = 0;
+	bool pipe_suspended = false;
+	struct ipa_ep_cfg_ctrl ctrl;
 
 	IPADBG("Applying reset channel with open aggregation frame WA\n");
 	ipahal_write_reg(IPA_AGGR_FORCE_CLOSE, (1 << clnt_hdl));
@@ -882,6 +884,15 @@ static int ipa3_reset_with_open_aggr_frame_wa(u32 clnt_hdl,
 		&chan_dma);
 	if (result)
 		return -EFAULT;
+
+	ipahal_read_reg_n_fields(IPA_ENDP_INIT_CTRL_n, clnt_hdl, &ctrl);
+	if (ctrl.ipa_ep_suspend) {
+		IPADBG("pipe is suspended, remove suspend\n");
+		pipe_suspended = true;
+		ctrl.ipa_ep_suspend = false;
+		ipahal_write_reg_n_fields(IPA_ENDP_INIT_CTRL_n,
+			clnt_hdl, &ctrl);
+	}
 
 	/* Start channel and put 1 Byte descriptor on it */
 	gsi_res = gsi_start_channel(ep->gsi_chan_hdl);
@@ -942,6 +953,13 @@ static int ipa3_reset_with_open_aggr_frame_wa(u32 clnt_hdl,
 	 */
 	msleep(IPA_POLL_AGGR_STATE_SLEEP_MSEC);
 
+	if (pipe_suspended) {
+		IPADBG("suspend the pipe again\n");
+		ctrl.ipa_ep_suspend = true;
+		ipahal_write_reg_n_fields(IPA_ENDP_INIT_CTRL_n,
+			clnt_hdl, &ctrl);
+	}
+
 	/* Restore channels properties */
 	result = ipa3_restore_channel_properties(ep, &orig_chan_props,
 		&orig_chan_scratch);
@@ -956,6 +974,12 @@ queue_xfer_fail:
 	ipa3_stop_gsi_channel(clnt_hdl);
 	dma_free_coherent(ipa3_ctx->pdev, 1, buff, dma_addr);
 start_chan_fail:
+	if (pipe_suspended) {
+		IPADBG("suspend the pipe again\n");
+		ctrl.ipa_ep_suspend = true;
+		ipahal_write_reg_n_fields(IPA_ENDP_INIT_CTRL_n,
+			clnt_hdl, &ctrl);
+	}
 	ipa3_restore_channel_properties(ep, &orig_chan_props,
 		&orig_chan_scratch);
 restore_props_fail:

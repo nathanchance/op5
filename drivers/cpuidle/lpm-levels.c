@@ -71,6 +71,8 @@ enum debug_event {
 	CLUSTER_ENTER,
 	CLUSTER_EXIT,
 	PRE_PC_CB,
+	CPU_HP_STARTING,
+	CPU_HP_DYING,
 };
 
 struct lpm_debug {
@@ -345,10 +347,16 @@ static int lpm_cpu_callback(struct notifier_block *cpu_nb,
 
 	switch (action & ~CPU_TASKS_FROZEN) {
 	case CPU_DYING:
+		update_debug_pc_event(CPU_HP_DYING, cpu,
+				cluster->num_children_in_sync.bits[0],
+				cluster->child_cpus.bits[0], false);
 		cluster_prepare(cluster, get_cpu_mask((unsigned int) cpu),
 					NR_LPM_LEVELS, false, 0);
 		break;
 	case CPU_STARTING:
+		update_debug_pc_event(CPU_HP_STARTING, cpu,
+				cluster->num_children_in_sync.bits[0],
+				cluster->child_cpus.bits[0], false);
 		cluster_unprepare(cluster, get_cpu_mask((unsigned int) cpu),
 					NR_LPM_LEVELS, false, 0);
 		break;
@@ -357,6 +365,22 @@ static int lpm_cpu_callback(struct notifier_block *cpu_nb,
 	}
 	return NOTIFY_OK;
 }
+
+#ifdef CONFIG_ARM_PSCI
+static int __init set_cpuidle_ops(void)
+{
+	int ret = 0, cpu;
+
+	for_each_possible_cpu(cpu) {
+		ret = arm_cpuidle_init(cpu);
+		if (ret)
+			goto exit;
+	}
+
+exit:
+	return ret;
+}
+#endif
 
 static enum hrtimer_restart lpm_hrtimer_cb(struct hrtimer *h)
 {
@@ -686,7 +710,7 @@ static int cpu_power_select(struct cpuidle_device *dev,
 	if (!cpu)
 		return -EINVAL;
 
-	if (sleep_disabled)
+	if (sleep_disabled && !cpu_isolated(dev->cpu))
 		return 0;
 
 	idx_restrict = cpu->nlevels + 1;
@@ -1096,10 +1120,14 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 		bool from_idle, int predicted)
 {
 	struct lpm_cluster_level *level = &cluster->levels[idx];
+	struct cpumask online_cpus;
 	int ret, i;
 
+	cpumask_and(&online_cpus, &cluster->num_children_in_sync,
+					cpu_online_mask);
+
 	if (!cpumask_equal(&cluster->num_children_in_sync, &cluster->child_cpus)
-			|| is_IPI_pending(&cluster->num_children_in_sync)) {
+			|| is_IPI_pending(&online_cpus)) {
 		return -EPERM;
 	}
 
@@ -1932,6 +1960,14 @@ static int __init lpm_levels_module_init(void)
 		pr_info("Error registering %s\n", lpm_driver.driver.name);
 		goto fail;
 	}
+
+#ifdef CONFIG_ARM_PSCI
+	rc = set_cpuidle_ops();
+	if (rc) {
+		pr_err("%s(): Failed to set cpuidle ops\n", __func__);
+		goto fail;
+	}
+#endif
 
 fail:
 	return rc;

@@ -110,47 +110,6 @@ enum ipa_cpu_2_hw_wdi_commands {
 };
 
 /**
- * enum ipa_hw_2_cpu_cmd_resp_status -  Values that represent WDI related
- * command response status to be sent to CPU.
- */
-enum ipa_hw_2_cpu_cmd_resp_status {
-	IPA_HW_2_CPU_WDI_CMD_STATUS_SUCCESS            =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_WDI, 0),
-	IPA_HW_2_CPU_MAX_WDI_TX_CHANNELS               =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_WDI, 1),
-	IPA_HW_2_CPU_WDI_CE_RING_OVERRUN_POSSIBILITY   =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_WDI, 2),
-	IPA_HW_2_CPU_WDI_CE_RING_SET_UP_FAILURE        =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_WDI, 3),
-	IPA_HW_2_CPU_WDI_CE_RING_PARAMS_UNALIGNED      =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_WDI, 4),
-	IPA_HW_2_CPU_WDI_COMP_RING_OVERRUN_POSSIBILITY =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_WDI, 5),
-	IPA_HW_2_CPU_WDI_COMP_RING_SET_UP_FAILURE      =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_WDI, 6),
-	IPA_HW_2_CPU_WDI_COMP_RING_PARAMS_UNALIGNED    =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_WDI, 7),
-	IPA_HW_2_CPU_WDI_UNKNOWN_TX_CHANNEL            =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_WDI, 8),
-	IPA_HW_2_CPU_WDI_TX_INVALID_FSM_TRANSITION     =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_WDI, 9),
-	IPA_HW_2_CPU_WDI_TX_FSM_TRANSITION_ERROR       =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_WDI, 10),
-	IPA_HW_2_CPU_MAX_WDI_RX_CHANNELS               =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_WDI, 11),
-	IPA_HW_2_CPU_WDI_RX_RING_PARAMS_UNALIGNED      =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_WDI, 12),
-	IPA_HW_2_CPU_WDI_RX_RING_SET_UP_FAILURE        =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_WDI, 13),
-	IPA_HW_2_CPU_WDI_UNKNOWN_RX_CHANNEL            =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_WDI, 14),
-	IPA_HW_2_CPU_WDI_RX_INVALID_FSM_TRANSITION     =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_WDI, 15),
-	IPA_HW_2_CPU_WDI_RX_FSM_TRANSITION_ERROR       =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_WDI, 16),
-};
-
-/**
  * enum ipa_hw_wdi_errors - WDI specific error types.
  * @IPA_HW_WDI_ERROR_NONE : No error persists
  * @IPA_HW_WDI_CHANNEL_ERROR : Error is specific to channel
@@ -1198,7 +1157,7 @@ int ipa2_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 				IPA_CPU_2_HW_CMD_WDI_TX_SET_UP :
 				IPA_CPU_2_HW_CMD_WDI_RX_SET_UP,
 				IPA_HW_2_CPU_WDI_CMD_STATUS_SUCCESS,
-				false, IPA_TIMEOUT(10));
+				false, 10*HZ);
 
 	if (result) {
 		result = -EFAULT;
@@ -1297,7 +1256,7 @@ int ipa2_disconnect_wdi_pipe(u32 clnt_hdl)
 	result = ipa_uc_send_cmd(tear.raw32b,
 				IPA_CPU_2_HW_CMD_WDI_TEAR_DOWN,
 				IPA_HW_2_CPU_WDI_CMD_STATUS_SUCCESS,
-				false, IPA_TIMEOUT(10));
+				false, 10*HZ);
 
 	if (result) {
 		result = -EFAULT;
@@ -1367,7 +1326,7 @@ int ipa2_enable_wdi_pipe(u32 clnt_hdl)
 	result = ipa_uc_send_cmd(enable.raw32b,
 		IPA_CPU_2_HW_CMD_WDI_CH_ENABLE,
 		IPA_HW_2_CPU_WDI_CMD_STATUS_SUCCESS,
-		false, IPA_TIMEOUT(10));
+		false, 10*HZ);
 
 	if (result) {
 		result = -EFAULT;
@@ -1473,7 +1432,7 @@ int ipa2_disable_wdi_pipe(u32 clnt_hdl)
 	result = ipa_uc_send_cmd(disable.raw32b,
 		IPA_CPU_2_HW_CMD_WDI_CH_DISABLE,
 		IPA_HW_2_CPU_WDI_CMD_STATUS_SUCCESS,
-		false, IPA_TIMEOUT(10));
+		false, 10*HZ);
 
 	if (result) {
 		result = -EFAULT;
@@ -1540,7 +1499,7 @@ int ipa2_resume_wdi_pipe(u32 clnt_hdl)
 	result = ipa_uc_send_cmd(resume.raw32b,
 		IPA_CPU_2_HW_CMD_WDI_CH_RESUME,
 		IPA_HW_2_CPU_WDI_CMD_STATUS_SUCCESS,
-		false, IPA_TIMEOUT(10));
+		false, 10*HZ);
 
 	if (result) {
 		result = -EFAULT;
@@ -1637,7 +1596,7 @@ int ipa2_suspend_wdi_pipe(u32 clnt_hdl)
 		result = ipa_uc_send_cmd(suspend.raw32b,
 			IPA_CPU_2_HW_CMD_WDI_CH_SUSPEND,
 			IPA_HW_2_CPU_WDI_CMD_STATUS_SUCCESS,
-			false, IPA_TIMEOUT(10));
+			false, 10*HZ);
 
 		if (result) {
 			result = -EFAULT;
@@ -1668,7 +1627,7 @@ int ipa2_suspend_wdi_pipe(u32 clnt_hdl)
 		result = ipa_uc_send_cmd(suspend.raw32b,
 			IPA_CPU_2_HW_CMD_WDI_CH_SUSPEND,
 			IPA_HW_2_CPU_WDI_CMD_STATUS_SUCCESS,
-			false, IPA_TIMEOUT(10));
+			false, 10*HZ);
 
 		if (result) {
 			result = -EFAULT;
@@ -1713,7 +1672,7 @@ int ipa_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id)
 
 	if (clnt_hdl >= ipa_ctx->ipa_num_pipes ||
 	    ipa_ctx->ep[clnt_hdl].valid == 0) {
-		IPAERR("bad parm, %d\n", clnt_hdl);
+		IPAERR_RL("bad parm, %d\n", clnt_hdl);
 		return -EINVAL;
 	}
 
@@ -1726,7 +1685,7 @@ int ipa_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id)
 	ep = &ipa_ctx->ep[clnt_hdl];
 
 	if (!(ep->uc_offload_state & IPA_WDI_CONNECTED)) {
-		IPAERR("WDI channel bad state %d\n", ep->uc_offload_state);
+		IPAERR_RL("WDI channel bad state %d\n", ep->uc_offload_state);
 		return -EFAULT;
 	}
 
@@ -1737,7 +1696,7 @@ int ipa_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id)
 	result = ipa_uc_send_cmd(qmap.raw32b,
 		IPA_CPU_2_HW_CMD_WDI_RX_EXT_CFG,
 		IPA_HW_2_CPU_WDI_CMD_STATUS_SUCCESS,
-		false, IPA_TIMEOUT(10));
+		false, 10*HZ);
 
 	if (result) {
 		result = -EFAULT;
