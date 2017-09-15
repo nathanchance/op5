@@ -764,7 +764,7 @@ static void send_flush_completion_to_user(uint8_t ring_id)
 		return;
 
 	if (cds_is_self_recovery_enabled())
-		cds_trigger_recovery(false);
+		cds_trigger_recovery();
 	else
 		QDF_BUG(0);
 }
@@ -780,8 +780,6 @@ static int wlan_logging_thread(void *Arg)
 	int ret_wait_status = 0;
 	int ret = 0;
 	unsigned long flags;
-
-	set_user_nice(current, -2);
 
 	while (!gwlan_logging.exit) {
 		ret_wait_status =

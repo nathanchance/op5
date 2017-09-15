@@ -463,6 +463,7 @@ enum qca_nl80211_vendor_subcmds {
 
 	/* Set Specific Absorption Rate(SAR) Power Limits */
 	QCA_NL80211_VENDOR_SUBCMD_SET_SAR_LIMITS = 146,
+	QCA_NL80211_VENDOR_SUBCMD_CHIP_PWRSAVE_FAILURE = 148,
 	QCA_NL80211_VENDOR_SUBCMD_NUD_STATS_SET = 149,
 	QCA_NL80211_VENDOR_SUBCMD_NUD_STATS_GET = 150,
 };
@@ -744,6 +745,7 @@ enum qca_nl80211_vendor_subcmds_index {
 	QCA_NL80211_VENDOR_SUBCMD_P2P_LO_EVENT_INDEX,
 	QCA_NL80211_VENDOR_SUBCMD_SAP_CONDITIONAL_CHAN_SWITCH_INDEX,
 	QCA_NL80211_VENDOR_SUBCMD_NUD_STATS_GET_INDEX,
+	QCA_NL80211_VENDOR_SUBCMD_PWR_SAVE_FAIL_DETECTED_INDEX,
 };
 
 /**
@@ -852,6 +854,39 @@ enum qca_wlan_vendor_attr_tdls_disable {
 	QCA_WLAN_VENDOR_ATTR_TDLS_DISABLE_AFTER_LAST,
 	QCA_WLAN_VENDOR_ATTR_TDLS_DISABLE_MAX =
 		QCA_WLAN_VENDOR_ATTR_TDLS_DISABLE_AFTER_LAST - 1,
+};
+
+/**
+ * qca_chip_power_save_failure_reason: Power save failure reason
+ * @QCA_CHIP_POWER_SAVE_FAILURE_REASON_PROTOCOL: Indicates power save failure
+ * due to protocol/module.
+ * @QCA_CHIP_POWER_SAVE_FAILURE_REASON_HARDWARE: power save failure
+ * due to hardware
+ */
+enum qca_chip_power_save_failure_reason {
+	QCA_CHIP_POWER_SAVE_FAILURE_REASON_PROTOCOL = 0,
+	QCA_CHIP_POWER_SAVE_FAILURE_REASON_HARDWARE = 1,
+};
+
+/**
+ * qca_attr_chip_power_save_failure: attributes to vendor subcmd
+ * @QCA_NL80211_VENDOR_SUBCMD_CHIP_PWRSAVE_FAILURE. This carry the requisite
+ * information leading to the power save failure.
+ * @QCA_ATTR_CHIP_POWER_SAVE_FAILURE_INVALID : invalid
+ * @QCA_ATTR_CHIP_POWER_SAVE_FAILURE_REASON : power save failure reason
+ * represented by enum qca_chip_power_save_failure_reason
+ * @QCA_ATTR_CHIP_POWER_SAVE_FAILURE_LAST : Last
+ * @QCA_ATTR_CHIP_POWER_SAVE_FAILURE_MAX : Max value
+ */
+enum qca_attr_chip_power_save_failure {
+	QCA_ATTR_CHIP_POWER_SAVE_FAILURE_INVALID = 0,
+
+	QCA_ATTR_CHIP_POWER_SAVE_FAILURE_REASON = 1,
+
+	/* keep last */
+	QCA_ATTR_CHIP_POWER_SAVE_FAILURE_LAST,
+	QCA_ATTR_CHIP_POWER_SAVE_FAILURE_MAX =
+		QCA_ATTR_CHIP_POWER_SAVE_FAILURE_LAST - 1,
 };
 
 /**
@@ -2061,6 +2096,8 @@ enum qca_wlan_vendor_attr_pno_config_params {
 	QCA_WLAN_VENDOR_ATTR_EPNO_SAME_NETWORK_BONUS = 20,
 	QCA_WLAN_VENDOR_ATTR_EPNO_SECURE_BONUS = 21,
 	QCA_WLAN_VENDOR_ATTR_EPNO_BAND5GHZ_BONUS = 22,
+	/* Unsigned 32-bit value, representing the PNO Request ID */
+	QCA_WLAN_VENDOR_ATTR_PNO_CONFIG_REQUEST_ID = 23,
 
 	/* keep last */
 	QCA_WLAN_VENDOR_ATTR_PNO_AFTER_LAST,
@@ -2526,6 +2563,7 @@ enum qca_ignore_assoc_disallowed {
  *                  Ignore Assoc Disallowed[MBO]
  * @QCA_WLAN_VENDOR_ATTR_CONFIG_LAST: last config
  * @QCA_WLAN_VENDOR_ATTR_CONFIG_MAX: max config
+ * @QCA_WLAN_VENDOR_ATTR_CONFIG_LRO: enable/disable LRO
  */
 enum qca_wlan_vendor_config {
 	QCA_WLAN_VENDOR_ATTR_CONFIG_INVALID = 0,
@@ -2601,6 +2639,12 @@ enum qca_wlan_vendor_config {
 	/* Unsigned 8-bit, for setting qpower dynamically */
 	QCA_WLAN_VENDOR_ATTR_CONFIG_QPOWER = 25,
 	QCA_WLAN_VENDOR_ATTR_CONFIG_IGNORE_ASSOC_DISALLOWED = 26,
+	/*
+	 * 8 bit unsigned value to enable/disable LRO (Large Receive Offload)
+	 * on an interface.
+	 * 1 - Enable , 0 - Disable.
+	 */
+	QCA_WLAN_VENDOR_ATTR_CONFIG_LRO = 50,
 	/* keep last */
 	QCA_WLAN_VENDOR_ATTR_CONFIG_LAST,
 	QCA_WLAN_VENDOR_ATTR_CONFIG_MAX =
@@ -3650,4 +3694,16 @@ void hdd_process_defer_disconnect(hdd_adapter_t *adapter);
  * Return: 0 for success, non-zero for failure
  */
 int wlan_hdd_try_disconnect(hdd_adapter_t *adapter);
+
+/**
+ * hdd_update_cca_info_cb() - stores congestion value in station context
+ * @context : HDD context
+ * @congestion : congestion
+ * @vdev_id : vdev id
+ *
+ * Return: None
+ */
+void hdd_update_cca_info_cb(void *context, uint32_t congestion,
+			uint32_t vdev_id);
+
 #endif

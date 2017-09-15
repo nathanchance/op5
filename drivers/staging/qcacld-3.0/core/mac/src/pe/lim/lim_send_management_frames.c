@@ -563,7 +563,7 @@ lim_send_probe_rsp_mgmt_frame(tpAniSirGlobal mac_ctx,
 	uint8_t noa_ie[SIR_MAX_NOA_ATTR_LEN + SIR_P2P_IE_HEADER_LEN];
 	uint8_t sme_sessionid = 0;
 	bool is_vht_enabled = false;
-	tDot11fIEExtCap extracted_ext_cap;
+	tDot11fIEExtCap extracted_ext_cap = {0};
 	bool extracted_ext_cap_flag = false;
 
 	/* We don't answer requests in this case*/
@@ -1262,8 +1262,16 @@ lim_send_assoc_rsp_mgmt_frame(tpAniSirGlobal mac_ctx,
 					&frm.VHTOperation);
 			is_vht = true;
 		} else {
-			/* Advertise 1x1 if either is HT-STA */
-			if (frm.HTCaps.present && mac_ctx->hw_dbs_capable)
+			/*
+			 * 2G-AS platform: SAP associates with HT (11n)clients
+			 * as 2x1 in 2G and 2X2 in 5G
+			 * Non-2G-AS platform: SAP associates with HT (11n)
+			 * clients as 2X2 in 2G and 5G
+			 * 5G-AS: Don’t care
+			 */
+			if (frm.HTCaps.present && mac_ctx->hw_dbs_capable &&
+				mac_ctx->lteCoexAntShare &&
+				IS_24G_CH(pe_session->currentOperChannel))
 				frm.HTCaps.supportedMCSSet[1] = 0;
 		}
 		if (pe_session->vhtCapability &&
@@ -2168,7 +2176,7 @@ void
 lim_send_auth_mgmt_frame(tpAniSirGlobal mac_ctx,
 			 tpSirMacAuthFrameBody auth_frame,
 			 tSirMacAddr peer_addr,
-			 uint8_t wep_bit,
+			 uint8_t wep_challenge_len,
 			 tpPESession session)
 {
 	uint8_t *frame, *body;
@@ -2187,7 +2195,7 @@ lim_send_auth_mgmt_frame(tpAniSirGlobal mac_ctx,
 
 	sme_sessionid = session->smeSessionId;
 
-	if (wep_bit == LIM_WEP_IN_FC) {
+	if (wep_challenge_len) {
 		/*
 		 * Auth frame3 to be sent with encrypted framebody
 		 *
@@ -2201,8 +2209,8 @@ lim_send_auth_mgmt_frame(tpAniSirGlobal mac_ctx,
 			FL("Sending encrypted auth frame to " MAC_ADDRESS_STR),
 				MAC_ADDR_ARRAY(peer_addr));
 
-		frame_len = sizeof(tSirMacMgmtHdr) + LIM_ENCR_AUTH_BODY_LEN;
-		body_len = LIM_ENCR_AUTH_BODY_LEN;
+		body_len = wep_challenge_len + LIM_ENCR_AUTH_INFO_LEN;
+		frame_len = sizeof(tSirMacMgmtHdr) + body_len;
 
 		goto alloc_packet;
 	}
@@ -2328,7 +2336,10 @@ alloc_packet:
 	lim_populate_mac_header(mac_ctx, frame, SIR_MAC_MGMT_FRAME,
 		SIR_MAC_MGMT_AUTH, peer_addr, session->selfMacAddr);
 	mac_hdr = (tpSirMacMgmtHdr) frame;
-	mac_hdr->fc.wep = wep_bit;
+	if (wep_challenge_len)
+		mac_hdr->fc.wep = LIM_WEP_IN_FC;
+	else
+		mac_hdr->fc.wep = LIM_NO_WEP_IN_FC;
 
 	/* Prepare BSSId */
 	if (LIM_IS_AP_ROLE(session))
@@ -2339,7 +2350,7 @@ alloc_packet:
 	/* Prepare Authentication frame body */
 	body = frame + sizeof(tSirMacMgmtHdr);
 
-	if (wep_bit == LIM_WEP_IN_FC) {
+	if (wep_challenge_len) {
 		qdf_mem_copy(body, (uint8_t *) auth_frame, body_len);
 
 		lim_log(mac_ctx, LOG1,
