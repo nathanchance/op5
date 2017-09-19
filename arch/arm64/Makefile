@@ -40,7 +40,7 @@ export GCC_VERSION
 
 ifneq ($(GCC_VERSION), 0409)
 # Optimize for Kryo 280
-ARM64_ARCH_OPT	:= -mcpu=cortex-a73+crypto+crc -mtune=cortex-a73
+ARM64_ARCH_OPT	:= -mcpu=cortex-a73.cortex-a53+crypto+crc -mtune=cortex-a73.cortex-a53
 
 # If for some reason compiling with a toolchain that supports neither mcpu or
 # mtune (in which case, wtf?), don't tune at all (march can break assembly)
