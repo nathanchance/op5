@@ -648,6 +648,7 @@ endif
 # FLASH OPTMIZATION SETUP #
 ###########################
 
+ifneq ($(GCC_VERSION), 0409)
 KBUILD_CFLAGS	+= -g0 -DNDEBUG \
 		   -fgraphite-identity \
 		   -fivopts \
@@ -655,6 +656,7 @@ KBUILD_CFLAGS	+= -g0 -DNDEBUG \
 		   -ftree-loop-distribution \
 		   -ftree-loop-distribute-patterns \
 		   -ftree-vectorize
+endif
 
 # Disable all maybe-uninitialized warnings
 KBUILD_CFLAGS	+= $(call cc-disable-warning,maybe-uninitialized,)
