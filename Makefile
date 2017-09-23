@@ -650,6 +650,7 @@ endif
 # FLASH OPTMIZATION SETUP #
 ###########################
 
+ifneq ($(GCC_VERSION), 0409)
 KBUILD_CFLAGS	+= -g0 -DNDEBUG \
 		   -fgraphite-identity \
 		   -fivopts \
@@ -657,6 +658,7 @@ KBUILD_CFLAGS	+= -g0 -DNDEBUG \
 		   -ftree-loop-distribution \
 		   -ftree-loop-distribute-patterns \
 		   -ftree-vectorize
+endif
 
 # Needed to unbreak GCC 7.x and above
 KBUILD_CFLAGS   += $(call cc-option,-fno-store-merging,)
