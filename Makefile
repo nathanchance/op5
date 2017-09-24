@@ -350,7 +350,7 @@ CC		= $(CROSS_COMPILE)gcc
 CPP		= $(CC) -E
 AR		= $(CROSS_COMPILE)ar
 NM		= $(CROSS_COMPILE)nm
-STRIP		= $(CROSS_COMPILE)strip --strip-debug
+STRIP		= $(CROSS_COMPILE)strip
 OBJCOPY		= $(CROSS_COMPILE)objcopy
 OBJDUMP		= $(CROSS_COMPILE)objdump
 AWK		= awk
@@ -365,7 +365,7 @@ CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 CFLAGS_MODULE   =
 AFLAGS_MODULE   =
-LDFLAGS_MODULE  = --strip-debug
+LDFLAGS_MODULE  =
 CFLAGS_KERNEL	=
 AFLAGS_KERNEL	=
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage -fno-tree-loop-im
@@ -648,6 +648,7 @@ endif
 # FLASH OPTMIZATION SETUP #
 ###########################
 
+ifneq ($(GCC_VERSION), 0409)
 KBUILD_CFLAGS	+= -g0 -DNDEBUG \
 		   -fgraphite-identity \
 		   -fivopts \
@@ -655,6 +656,7 @@ KBUILD_CFLAGS	+= -g0 -DNDEBUG \
 		   -ftree-loop-distribution \
 		   -ftree-loop-distribute-patterns \
 		   -ftree-vectorize
+endif
 
 # Disable all maybe-uninitialized warnings
 KBUILD_CFLAGS	+= $(call cc-disable-warning,maybe-uninitialized,)

@@ -520,7 +520,7 @@ int msm_11ad_ctrl_aspm_l1(struct msm11ad_ctx *ctx, bool enable)
 	return rc;
 }
 
-static int ops_suspend(void *handle)
+static int ops_suspend(void *handle, bool keep_device_power)
 {
 	int rc;
 	struct msm11ad_ctx *ctx = handle;
@@ -557,7 +557,7 @@ static int ops_suspend(void *handle)
 	return rc;
 }
 
-static int ops_resume(void *handle)
+static int ops_resume(void *handle, bool device_powered_on)
 {
 	int rc;
 	struct msm11ad_ctx *ctx = handle;
@@ -870,7 +870,7 @@ out_rc:
 static void msm_11ad_init_cpu_boost(struct msm11ad_ctx *ctx)
 {
 	unsigned int minfreq = 0, maxfreq = 0, freq;
-	int i, boost_cpu;
+	int i, boost_cpu = 0;
 
 	for_each_possible_cpu(i) {
 		freq = cpufreq_quick_get_max(i);
@@ -1091,7 +1091,7 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	device_disable_async_suspend(&pcidev->dev);
 
 	list_add_tail(&ctx->list, &dev_list);
-	ops_suspend(ctx);
+	ops_suspend(ctx, false);
 
 	return 0;
 out_rc:
@@ -1259,7 +1259,7 @@ static void ops_uninit(void *handle)
 	memset(&ctx->rops, 0, sizeof(ctx->rops));
 	ctx->wil_handle = NULL;
 
-	ops_suspend(ctx);
+	ops_suspend(ctx, false);
 }
 
 static int msm_11ad_notify_crash(struct msm11ad_ctx *ctx)
@@ -1384,7 +1384,7 @@ int msm_11ad_modinit(void)
 
 	ctx->subsys_handle = subsystem_get(ctx->subsysdesc.name);
 
-	return ops_resume(ctx);
+	return ops_resume(ctx, false);
 }
 EXPORT_SYMBOL(msm_11ad_modinit);
 
