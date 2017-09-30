@@ -299,9 +299,6 @@ static void _ion_buffer_destroy(struct kref *kref)
 	mutex_lock(&dev->buffer_lock);
 	rb_erase(&buffer->node, &dev->buffers);
 	mutex_unlock(&dev->buffer_lock);
-    //MaJunhai@OnePlus..MultiMediaService, add /proc/process/task/taskid/wakeup || /proc/process/wakeup for ion tracking
-  //  printk("[%5d:%5d] destroy ion buffer %p\n", current->tgid, current->pid, buffer);
-    //#endif
 
 	if (heap->flags & ION_HEAP_FLAG_DEFER_FREE)
 		ion_heap_freelist_add(heap, buffer);
@@ -349,13 +346,8 @@ static void ion_buffer_remove_from_handle(struct ion_buffer *buffer)
 		task = current->group_leader;
 		get_task_comm(buffer->task_comm, task);
 		buffer->pid = task_pid_nr(task);
-        //MaJunhai@OnePlus..MultiMediaService, add /proc/process/task/taskid/wakeup || /proc/process/wakeup for ion tracking
-        //if(!strncmp("Binder", current->comm, strlen("Binder"))) {
-            buffer->client_tgid = task_thread_info(current)->tgid;
-            buffer->client_pid = task_thread_info(current)->pid;
-           // printk("[%5d:%5d]ion buffer %p: client_tgid %d client_pid %d\n", current->tgid, current->pid, buffer, buffer->client_tgid, buffer->client_pid);
-        //}
-        //#endif
+		buffer->client_tgid = task_thread_info(current)->tgid;
+		buffer->client_pid = task_thread_info(current)->pid;
 
 		atomic_sub(buffer->size, &buffer->heap->total_handles);
 	}
@@ -414,7 +406,8 @@ static void ion_handle_get(struct ion_handle *handle)
 }
 
 /* Must hold the client lock */
-static struct ion_handle* ion_handle_get_check_overflow(struct ion_handle *handle)
+static struct
+ion_handle *ion_handle_get_check_overflow(struct ion_handle *handle)
 {
 	if (atomic_read(&handle->ref.refcount) + 1 == 0)
 		return ERR_PTR(-EOVERFLOW);
@@ -613,11 +606,8 @@ static struct ion_handle *__ion_alloc(struct ion_client *client, size_t len,
 		buffer = ion_buffer_create(heap, dev, len, align, flags);
 		trace_ion_alloc_buffer_end(client->name, heap->name, len,
 					   heap_id_mask, flags);
-        //MaJunhai@OnePlus..MultiMediaService, add /proc/process/task/taskid/wakeup || /proc/process/wakeup for ion tracking
 		if (!IS_ERR(buffer))
-         //   printk("[%5d:%5d] create ion buffer %p\n", current->tgid, current->pid, buffer);
 			break;
-        //#endif
 		trace_ion_alloc_buffer_fallback(client->name, heap->name, len,
 					    heap_id_mask, flags,
 					    PTR_ERR(buffer));
@@ -686,7 +676,8 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 }
 EXPORT_SYMBOL(ion_alloc);
 
-static void ion_free_nolock(struct ion_client *client, struct ion_handle *handle)
+static void ion_free_nolock(struct ion_client *client,
+			    struct ion_handle *handle)
 {
 	bool valid_handle;
 
@@ -911,7 +902,7 @@ static int ion_debug_client_show(struct seq_file *s, void *unused)
 				atomic_read(&handle->ref.refcount),
 				handle->buffer);
 
-		seq_printf(s, "\n");
+		seq_puts(s, "\n");
 	}
 	mutex_unlock(&client->lock);
 	mutex_unlock(&debugfs_mutex);
@@ -1160,6 +1151,7 @@ struct sg_table *ion_create_chunked_sg_table(phys_addr_t buffer_base,
 
 	for_each_sg(table->sgl, sg, table->nents, i) {
 		dma_addr_t addr = buffer_base + i * chunk_size;
+
 		sg_dma_address(sg) = addr;
 		sg->length = chunk_size;
 	}
@@ -1617,7 +1609,8 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		struct ion_handle *handle;
 
 		mutex_lock(&client->lock);
-		handle = ion_handle_get_by_id_nolock(client, data.handle.handle);
+		handle = ion_handle_get_by_id_nolock(client,
+						     data.handle.handle);
 		if (IS_ERR(handle)) {
 			mutex_unlock(&client->lock);
 			return PTR_ERR(handle);
@@ -1771,8 +1764,8 @@ void ion_debug_mem_map_create(struct seq_file *s, struct ion_heap *heap,
 	down_read(&dev->lock);
 	for (cnode = rb_first(&dev->clients); cnode; cnode = rb_next(cnode)) {
 		struct rb_node *hnode;
-		client = rb_entry(cnode, struct ion_client, node);
 
+		client = rb_entry(cnode, struct ion_client, node);
 		mutex_lock(&client->lock);
 		for (hnode = rb_first(&client->handles);
 		     hnode;
@@ -1817,6 +1810,7 @@ static void ion_debug_mem_map_destroy(struct list_head *mem_map)
 {
 	if (mem_map) {
 		struct mem_map_data *data, *tmp;
+
 		list_for_each_entry_safe(data, tmp, mem_map, node) {
 			list_del(&data->node);
 			kfree(data->client_name);
@@ -1828,6 +1822,7 @@ static void ion_debug_mem_map_destroy(struct list_head *mem_map)
 static int mem_map_cmp(void *priv, struct list_head *a, struct list_head *b)
 {
 	struct mem_map_data *d1, *d2;
+
 	d1 = list_entry(a, struct mem_map_data, node);
 	d2 = list_entry(b, struct mem_map_data, node);
 	if (d1->addr == d2->addr)
@@ -1844,6 +1839,7 @@ static void ion_heap_print_debug(struct seq_file *s, struct ion_heap *heap)
 {
 	if (heap->ops->print_debug) {
 		struct list_head mem_map = LIST_HEAD_INIT(mem_map);
+
 		ion_debug_mem_map_create(s, heap, &mem_map);
 		list_sort(NULL, &mem_map, mem_map_cmp);
 		heap->ops->print_debug(heap, s, &mem_map);
@@ -1889,25 +1885,17 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 	for (n = rb_first(&dev->buffers); n; n = rb_next(n)) {
 		struct ion_buffer *buffer = rb_entry(n, struct ion_buffer,
 						     node);
+
 		if (buffer->heap->id != heap->id)
 			continue;
 		total_size += buffer->size;
-		if (!buffer->handle_count) {
-            //MaJunhai@OnePlus..MultiMediaService, add /proc/process/task/taskid/wakeup || /proc/process/wakeup for ion tracking
-            seq_printf(s, "%p %16.s %16u %16u %16u %16zu %d %d %d %d\n",
-                   buffer, buffer->task_comm, buffer->client_tgid, buffer->client_pid, buffer->pid,
-                   buffer->size, buffer->kmap_cnt,
-                   atomic_read(&buffer->ref.refcount), buffer->heap->id, buffer->handle_count);
-            total_orphaned_size += buffer->size;
-		}
-        //MaJunhai@OnePlus..MultiMediaService, add /proc/process/task/taskid/wakeup || /proc/process/wakeup for ion tracking
-        else {
-            seq_printf(s, "%p %16.s %16u %16u %16u %16zu %d %d %d %d\n",
-                               buffer, buffer->task_comm, buffer->client_tgid, buffer->client_pid, buffer->pid,
-                               buffer->size, buffer->kmap_cnt,
-                               atomic_read(&buffer->ref.refcount), buffer->heap->id, buffer->handle_count);
-        }
-        //#endif
+		if (!buffer->handle_count)
+			total_orphaned_size += buffer->size;
+		seq_printf(s, "%p %16.s %16u %16u %16u %16zu %d %d %d %d\n",
+			   buffer, buffer->task_comm, buffer->client_tgid,
+			   buffer->client_pid, buffer->pid, buffer->size,
+			   buffer->kmap_cnt, atomic_read(&buffer->ref.refcount),
+			   buffer->heap->id, buffer->handle_count);
 	}
 	mutex_unlock(&dev->buffer_lock);
 	seq_puts(s, "----------------------------------------------------\n");
