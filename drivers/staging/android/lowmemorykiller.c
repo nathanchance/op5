@@ -62,22 +62,24 @@
 #define CREATE_TRACE_POINTS
 #include "trace/lowmemorykiller.h"
 
-static uint32_t lowmem_debug_level = 1;
 static short lowmem_adj[6] = {
 	0,
 	1,
 	6,
 	12,
 };
-static int lowmem_adj_size = 4;
+
 static int lowmem_minfree[6] = {
 	3 * 512,	/* 6MB */
 	2 * 1024,	/* 8MB */
 	4 * 1024,	/* 16MB */
 	16 * 1024,	/* 64MB */
 };
-static int lowmem_minfree_size = 4;
+
 static int lmk_fast_run = 1;
+static int lowmem_adj_size = 4;
+static u32 lowmem_debug_level = 1;
+static int lowmem_minfree_size = 4;
 
 static unsigned long lowmem_deathpending_timeout;
 
@@ -99,7 +101,7 @@ static unsigned long lowmem_count(struct shrinker *s,
 static atomic_t shift_adj = ATOMIC_INIT(0);
 static short adj_max_shift = 353;
 module_param_named(adj_max_shift, adj_max_shift, short,
-                   S_IRUGO | S_IWUSR);
+		   S_IRUGO | S_IWUSR);
 
 /* User knob to enable/disable adaptive lmk feature */
 static int enable_adaptive_lmk;
@@ -261,8 +263,8 @@ int can_use_cma_pages(gfp_t gfp_mask)
 }
 
 void tune_lmk_zone_param(struct zonelist *zonelist, int classzone_idx,
-					int *other_free, int *other_file,
-					int use_cma_pages)
+			 int *other_free, int *other_file,
+			 int use_cma_pages)
 {
 	struct zone *zone;
 	struct zoneref *zoneref;
@@ -278,10 +280,10 @@ void tune_lmk_zone_param(struct zonelist *zonelist, int classzone_idx,
 		}
 
 		if (zone_idx > classzone_idx) {
-			if (other_free != NULL)
+			if (other_free)
 				*other_free -= zone_page_state(zone,
 							       NR_FREE_PAGES);
-			if (other_file != NULL)
+			if (other_file)
 				*other_file -= zone_page_state(zone,
 							       NR_FILE_PAGES)
 					- zone_page_state(zone, NR_SHMEM)
@@ -345,7 +347,7 @@ void tune_lmk_param(int *other_free, int *other_file, struct shrink_control *sc)
 	struct zonelist *zonelist;
 	enum zone_type high_zoneidx, classzone_idx;
 	unsigned long balance_gap;
-	int use_cma_pages;
+	int use_cma_pages, is_zonelist_ok;
 
 	gfp_mask = sc->gfp_mask;
 	adjust_gfp_mask(&gfp_mask);
@@ -358,18 +360,21 @@ void tune_lmk_param(int *other_free, int *other_file, struct shrink_control *sc)
 
 	balance_gap = min(low_wmark_pages(preferred_zone),
 			  (preferred_zone->present_pages +
-			   KSWAPD_ZONE_BALANCE_GAP_RATIO-1) /
+			   KSWAPD_ZONE_BALANCE_GAP_RATIO - 1) /
 			   KSWAPD_ZONE_BALANCE_GAP_RATIO);
 
-	if (likely(current_is_kswapd() && zone_watermark_ok(preferred_zone, 0,
-			  high_wmark_pages(preferred_zone) + SWAP_CLUSTER_MAX +
-			  balance_gap, 0, 0))) {
+	is_zonelist_ok = zone_watermark_ok(preferred_zone, 0,
+					   high_wmark_pages(preferred_zone) +
+					   SWAP_CLUSTER_MAX + balance_gap,
+					   0, 0);
+
+	if (likely(current_is_kswapd() && is_zonelist_ok)) {
 		if (lmk_fast_run)
 			tune_lmk_zone_param(zonelist, classzone_idx, other_free,
-				       other_file, use_cma_pages);
+					    other_file, use_cma_pages);
 		else
 			tune_lmk_zone_param(zonelist, classzone_idx, other_free,
-				       NULL, use_cma_pages);
+					    NULL, use_cma_pages);
 
 		if (zone_watermark_ok(preferred_zone, 0, 0, _ZONE, 0)) {
 			if (!use_cma_pages) {
@@ -387,20 +392,14 @@ void tune_lmk_param(int *other_free, int *other_file, struct shrink_control *sc)
 			*other_free -= zone_page_state(preferred_zone,
 						      NR_FREE_PAGES);
 		}
-
-		lowmem_print(4, "lowmem_shrink of kswapd tunning for highmem "
-			     "ofree %d, %d\n", *other_free, *other_file);
 	} else {
 		tune_lmk_zone_param(zonelist, classzone_idx, other_free,
-			       other_file, use_cma_pages);
+				    other_file, use_cma_pages);
 
 		if (!use_cma_pages) {
 			*other_free -=
 			  zone_page_state(preferred_zone, NR_FREE_CMA_PAGES);
 		}
-
-		lowmem_print(4, "lowmem_shrink tunning for others ofree %d, "
-			     "%d\n", *other_free, *other_file);
 	}
 }
 
@@ -427,10 +426,11 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 
 	if (global_page_state(NR_SHMEM) + total_swapcache_pages() <
 		global_page_state(NR_FILE_PAGES) + zcache_pages())
-		other_file = global_page_state(NR_FILE_PAGES) + zcache_pages() -
-						global_page_state(NR_SHMEM) -
-						global_page_state(NR_UNEVICTABLE) -
-						total_swapcache_pages();
+		other_file = global_page_state(NR_FILE_PAGES) +
+			     zcache_pages() -
+			     global_page_state(NR_SHMEM) -
+			     global_page_state(NR_UNEVICTABLE) -
+			     total_swapcache_pages();
 	else
 		other_file = 0;
 
@@ -451,8 +451,8 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 	ret = adjust_minadj(&min_score_adj);
 
 	lowmem_print(3, "lowmem_scan %lu, %x, ofree %d %d, ma %hd\n",
-			sc->nr_to_scan, sc->gfp_mask, other_free,
-			other_file, min_score_adj);
+		     sc->nr_to_scan, sc->gfp_mask, other_free,
+		     other_file, min_score_adj);
 
 	if (min_score_adj == OOM_SCORE_ADJ_MAX + 1) {
 		trace_almk_shrink(0, ret, other_free, other_file, 0);
@@ -537,17 +537,18 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 		cache_limit = minfree * (long)(PAGE_SIZE / 1024);
 		free = other_free * (long)(PAGE_SIZE / 1024);
 		trace_lowmemory_kill(selected, cache_size, cache_limit, free);
-		lowmem_print(1, "Killing '%s' (%d), adj %hd,\n" \
-			        "   to free %ldkB on behalf of '%s' (%d) because\n" \
-			        "   cache %ldkB is below limit %ldkB for oom_score_adj %hd\n" \
-				"   Free memory is %ldkB above reserved.\n" \
-				"   Free CMA is %ldkB\n" \
-				"   Total reserve is %ldkB\n" \
-				"   Total free pages is %ldkB\n" \
-				"   Total file cache is %ldkB\n" \
-				"   SHMEM is %ldkB\n" \
-				"   SwapCached is %ldkB\n" \
-				"   Total zcache is %ldkB\n" \
+		lowmem_print(1, "Killing '%s' (%d), adj %hd,\n"
+				"   to free %ldkB for '%s' (%d) because\n"
+				"   cache %ldkB is below limit %ldkB\n"
+				"   for oom_score_adj %hd\n"
+				"   Free memory is %ldkB above reserved.\n"
+				"   Free CMA is %ldkB\n"
+				"   Total reserve is %ldkB\n"
+				"   Total free pages is %ldkB\n"
+				"   Total file cache is %ldkB\n"
+				"   SHMEM is %ldkB\n"
+				"   SwapCached is %ldkB\n"
+				"   Total zcache is %ldkB\n"
 				"   GFP mask is 0x%x\n",
 			     selected->comm, selected->pid,
 			     selected_oom_score_adj,
