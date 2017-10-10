@@ -1741,8 +1741,19 @@ static void wlan_hdd_tdls_set_mode(hdd_context_t *pHddCtx,
 				/* tdls implicit mode is enabled, so
 				 * enable the connection tracker
 				 */
-				pHddCtx->enable_tdls_connection_tracker =
-					true;
+				pHddCtx->enable_tdls_connection_tracker = true;
+
+				if (tdls_mode ==
+				    eTDLS_SUPPORT_EXTERNAL_CONTROL &&
+				    !pHddCtx->tdls_external_peer_count) {
+					/* Disable connection tracker if tdls
+					 * mode is external and no force peers
+					 * were configured by application.
+					 */
+					pHddCtx->
+					 enable_tdls_connection_tracker = false;
+				}
+
 			} else if (eTDLS_SUPPORT_DISABLED == tdls_mode) {
 				set_bit((unsigned long)source,
 					&pHddCtx->tdls_source_bitmap);
@@ -3883,6 +3894,31 @@ int wlan_hdd_cfg80211_exttdls_disable(struct wiphy *wiphy,
 	return ret;
 }
 
+static int wlan_hdd_tdls_validate_mac_addr(const uint8_t *mac)
+{
+	int i;
+	uint8_t temp_mac[QDF_MAC_ADDR_SIZE] = {0};
+	/* 12 hexa decimal digits, and '\0' */
+	uint8_t mac_str[(QDF_MAC_ADDR_SIZE*2)+1];
+
+	if (!qdf_mem_cmp(mac, temp_mac, QDF_MAC_ADDR_SIZE)) {
+		hdd_err("Invalid Mac address " QDF_MAC_ADDRESS_STR " cmd declined.",
+		QDF_MAC_ADDR_ARRAY(mac));
+		return -EINVAL;
+	}
+
+	for (i = 0; i < QDF_MAC_ADDR_SIZE; i++)
+		snprintf(&mac_str[i*2], sizeof(mac_str)-(i*2), "%02X", mac[i]);
+
+	if (!hdd_is_valid_mac_address(mac_str)) {
+		hdd_err("Invalid Mac address " QDF_MAC_ADDRESS_STR " cmd declined.",
+			QDF_MAC_ADDR_ARRAY(mac));
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 /**
  * wlan_hdd_tdls_add_station() - add or change a TDLS peer station
  * @wiphy: wiphy
@@ -3910,6 +3946,10 @@ int wlan_hdd_tdls_add_station(struct wiphy *wiphy,
 	ENTER();
 
 	ret = wlan_hdd_validate_context(pHddCtx);
+	if (ret)
+		return ret;
+
+	ret = wlan_hdd_tdls_validate_mac_addr(mac);
 	if (ret)
 		return ret;
 
@@ -4162,6 +4202,7 @@ static int __wlan_hdd_cfg80211_tdls_mgmt(struct wiphy *wiphy,
 	int responder;
 	unsigned long rc;
 	uint16_t numCurrTdlsPeers;
+	int ret;
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 15, 0))
 #if !(TDLS_MGMT_VERSION2)
 	u32 peer_capability;
@@ -4186,6 +4227,10 @@ static int __wlan_hdd_cfg80211_tdls_mgmt(struct wiphy *wiphy,
 
 	if (wlan_hdd_validate_context(pHddCtx))
 		return -EINVAL;
+
+	ret = wlan_hdd_tdls_validate_mac_addr(peer);
+	if (ret)
+		return ret;
 
 	if (eTDLS_SUPPORT_NOT_ENABLED == pHddCtx->tdls_mode) {
 		hdd_notice("TDLS mode is disabled OR not enabled in FW." MAC_ADDRESS_STR " action %d declined.",
@@ -4578,9 +4623,15 @@ int wlan_hdd_tdls_extctrl_config_peer(hdd_adapter_t *pAdapter,
 	hddTdlsPeer_t *pTdlsPeer;
 	hdd_context_t *pHddCtx = WLAN_HDD_GET_CTX(pAdapter);
 	int status = 0;
+	int ret;
 	QDF_TRACE(QDF_MODULE_ID_HDD, QDF_TRACE_LEVEL_INFO,
 		  "%s : NL80211_TDLS_SETUP for " MAC_ADDRESS_STR,
 		  __func__, MAC_ADDR_ARRAY(peer));
+
+	ret = wlan_hdd_tdls_validate_mac_addr(peer);
+	if (ret)
+		return ret;
+
 	if ((false == pHddCtx->config->fTDLSExternalControl) ||
 	    (false == pHddCtx->config->fEnableTDLSImplicitTrigger)) {
 		QDF_TRACE(QDF_MODULE_ID_HDD, QDF_TRACE_LEVEL_INFO,
@@ -4679,9 +4730,15 @@ int wlan_hdd_tdls_extctrl_deconfig_peer(hdd_adapter_t *pAdapter,
 	hddTdlsPeer_t *pTdlsPeer;
 	hdd_context_t *pHddCtx = WLAN_HDD_GET_CTX(pAdapter);
 	int status = 0;
+	int ret;
 	QDF_TRACE(QDF_MODULE_ID_HDD, QDF_TRACE_LEVEL_INFO,
 		  "%s : NL80211_TDLS_TEARDOWN for " MAC_ADDRESS_STR,
 		  __func__, MAC_ADDR_ARRAY(peer));
+
+	ret = wlan_hdd_tdls_validate_mac_addr(peer);
+	if (ret)
+		return ret;
+
 	if ((false == pHddCtx->config->fTDLSExternalControl) ||
 	    (false == pHddCtx->config->fEnableTDLSImplicitTrigger)) {
 		QDF_TRACE(QDF_MODULE_ID_HDD, QDF_TRACE_LEVEL_INFO,
@@ -4779,6 +4836,7 @@ static int __wlan_hdd_cfg80211_tdls_oper(struct wiphy *wiphy,
 	tTDLSLinkStatus peer_status = eTDLS_LINK_IDLE;
 	uint16_t peer_staid;
 	uint8_t peer_offchannelsupp;
+	int ret;
 
 	ENTER();
 
@@ -4791,6 +4849,10 @@ static int __wlan_hdd_cfg80211_tdls_oper(struct wiphy *wiphy,
 		hdd_err("invalid session id: %d", pAdapter->sessionId);
 		return -EINVAL;
 	}
+
+	ret = wlan_hdd_tdls_validate_mac_addr(peer);
+	if (ret)
+		return ret;
 
 	MTRACE(qdf_trace(QDF_MODULE_ID_HDD,
 			 TRACE_CODE_HDD_CFG80211_TDLS_OPER,

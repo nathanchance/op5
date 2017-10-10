@@ -91,6 +91,7 @@
 #include "wlan_hdd_driver_ops.h"
 #include "epping_main.h"
 #include "wlan_hdd_memdump.h"
+#include "wlan_hdd_data_stall_detection.h"
 
 #include <wlan_hdd_ipa.h>
 #include "hif.h"
@@ -2632,6 +2633,7 @@ static hdd_adapter_t *hdd_alloc_station_adapter(hdd_context_t *hdd_ctx,
 {
 	struct net_device *pWlanDev = NULL;
 	hdd_adapter_t *adapter = NULL;
+	hdd_station_ctx_t *sta_ctx;
 	/*
 	 * cfg80211 initialization and registration....
 	 */
@@ -2649,7 +2651,10 @@ static hdd_adapter_t *hdd_alloc_station_adapter(hdd_context_t *hdd_ctx,
 		adapter = (hdd_adapter_t *) netdev_priv(pWlanDev);
 
 		qdf_mem_zero(adapter, sizeof(hdd_adapter_t));
-
+		sta_ctx = &adapter->sessionCtx.station;
+		qdf_mem_set(sta_ctx->conn_info.staId,
+			sizeof(sta_ctx->conn_info.staId),
+			HDD_WLAN_INVALID_STA_ID);
 		adapter->dev = pWlanDev;
 		adapter->pHddCtx = hdd_ctx;
 		adapter->magic = WLAN_HDD_ADAPTER_MAGIC;
@@ -3993,6 +3998,11 @@ QDF_STATUS hdd_stop_all_adapters(hdd_context_t *hdd_ctx)
 	ENTER();
 
 	cds_flush_work(&hdd_ctx->sap_pre_cac_work);
+	if (hdd_ctx->sta_ap_intf_check_work_info) {
+		cds_flush_work(&hdd_ctx->sta_ap_intf_check_work);
+		qdf_mem_free(hdd_ctx->sta_ap_intf_check_work_info);
+		hdd_ctx->sta_ap_intf_check_work_info = NULL;
+	}
 
 	status = hdd_get_front_adapter(hdd_ctx, &adapterNode);
 
@@ -4018,6 +4028,11 @@ QDF_STATUS hdd_reset_all_adapters(hdd_context_t *hdd_ctx)
 	ENTER();
 
 	cds_flush_work(&hdd_ctx->sap_pre_cac_work);
+	if (hdd_ctx->sta_ap_intf_check_work_info) {
+		cds_flush_work(&hdd_ctx->sta_ap_intf_check_work);
+		qdf_mem_free(hdd_ctx->sta_ap_intf_check_work_info);
+		hdd_ctx->sta_ap_intf_check_work_info = NULL;
+	}
 
 	status = hdd_get_front_adapter(hdd_ctx, &adapterNode);
 
@@ -4051,6 +4066,9 @@ QDF_STATUS hdd_reset_all_adapters(hdd_context_t *hdd_ctx)
 					   WLAN_CONTROL_PATH);
 		}
 		adapter->sessionCtx.station.hdd_ReassocScenario = false;
+
+		/* Cleanup pending roc request */
+		wlan_hdd_cleanup_remain_on_channel_ctx(adapter);
 
 		hdd_deinit_tx_rx(adapter);
 		hdd_lro_disable(hdd_ctx, adapter);
@@ -5177,6 +5195,7 @@ static int hdd_context_deinit(hdd_context_t *hdd_ctx)
  */
 static void hdd_context_destroy(hdd_context_t *hdd_ctx)
 {
+	cds_set_context(QDF_MODULE_ID_HDD, NULL);
 
 	hdd_logging_sock_deactivate_svc(hdd_ctx);
 
@@ -6753,6 +6772,9 @@ void hdd_ch_avoid_cb(void *hdd_context, void *indi_param)
 		return;
 	}
 
+	cds_save_wlan_unsafe_channels(hdd_ctxt->unsafe_channel_list,
+			hdd_ctxt->unsafe_channel_count);
+
 	for (channel_loop = 0;
 	     channel_loop < hdd_ctxt->unsafe_channel_count; channel_loop++) {
 		hdd_notice("channel %d is not safe ",
@@ -7119,8 +7141,6 @@ static hdd_context_t *hdd_context_create(struct device *dev)
 
 	hdd_override_ini_config(hdd_ctx);
 
-	((cds_context_type *) (p_cds_context))->pHDDContext = (void *)hdd_ctx;
-
 	ret = hdd_context_init(hdd_ctx);
 
 	if (ret)
@@ -7157,6 +7177,8 @@ static hdd_context_t *hdd_context_create(struct device *dev)
 	 */
 	if (cds_is_multicast_logging())
 		wlan_logging_set_log_level();
+
+	cds_set_context(QDF_MODULE_ID_HDD, hdd_ctx);
 
 skip_multicast_logging:
 	hdd_set_trace_level_for_each(hdd_ctx);
@@ -8479,7 +8501,7 @@ int hdd_configure_cds(hdd_context_t *hdd_ctx, hdd_adapter_t *adapter)
 	if (ret)
 		goto cds_disable;
 
-	sme_cbacks.sme_get_valid_channels = sme_get_cfg_valid_channels;
+	sme_cbacks.sme_get_valid_channels = sme_cfg_get_str;
 	sme_cbacks.sme_get_nss_for_vdev = sme_get_vdev_type_nss;
 	status = cds_init_policy_mgr(&sme_cbacks);
 	if (!QDF_IS_STATUS_SUCCESS(status)) {
@@ -9177,6 +9199,12 @@ int hdd_register_cb(hdd_context_t *hdd_ctx)
 	if (!QDF_IS_STATUS_SUCCESS(status))
 		hdd_err("set lost link info callback failed");
 
+	ret = hdd_register_data_stall_detect_cb();
+	if (ret) {
+		hdd_err("Register data stall detect detect callback failed.");
+		return ret;
+	}
+
 	wlan_hdd_dcc_register_for_dcc_stats_event(hdd_ctx);
 
 	status = sme_congestion_register_callback(hdd_ctx->hHal,
@@ -9200,6 +9228,7 @@ int hdd_register_cb(hdd_context_t *hdd_ctx)
 void hdd_deregister_cb(hdd_context_t *hdd_ctx)
 {
 	QDF_STATUS status;
+	int ret;
 
 	ENTER();
 
@@ -9232,6 +9261,10 @@ void hdd_deregister_cb(hdd_context_t *hdd_ctx)
 	if (!QDF_IS_STATUS_SUCCESS(status))
 		hdd_err("Failed to de-register the fw mem dump callback: %d",
 			status);
+
+	ret = hdd_deregister_data_stall_detect_cb();
+	if (ret)
+		hdd_err("Failed to de-register data stall detect event callback");
 
 	sme_deregister_oem_data_rsp_callback(hdd_ctx->hHal);
 	sme_deregister11d_scan_done_callback(hdd_ctx->hHal);
@@ -10549,6 +10582,7 @@ static void hdd_cleanup_present_mode(hdd_context_t *hdd_ctx,
 	case QDF_GLOBAL_FTM_MODE:
 		if (driver_status != DRIVER_MODULES_CLOSED) {
 			hdd_abort_mac_scan_all_adapters(hdd_ctx);
+			hdd_cleanup_scan_queue(hdd_ctx);
 			hdd_stop_all_adapters(hdd_ctx);
 		}
 		hdd_deinit_all_adapters(hdd_ctx, false);

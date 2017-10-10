@@ -787,6 +787,105 @@ int wlan_hdd_send_avoid_freq_event(hdd_context_t *pHddCtx,
 }
 #endif /* FEATURE_WLAN_CH_AVOID || FEATURE_WLAN_FORCE_SAP_SCC */
 
+/*
+ * define short names for the global vendor params
+ * used by QCA_NL80211_VENDOR_SUBCMD_HANG
+ */
+#define HANG_REASON_INDEX QCA_NL80211_VENDOR_SUBCMD_HANG_REASON_INDEX
+
+/**
+ * hdd_convert_hang_reason() - Convert cds recovery reason to vendor specific
+ * hang reason
+ * @reason: cds recovery reason
+ *
+ * Return: Vendor specific reason code
+ */
+static enum qca_wlan_vendor_hang_reason
+hdd_convert_hang_reason(enum cds_hang_reason reason)
+{
+	uint32_t ret_val;
+
+	switch (reason) {
+	case CDS_RX_HASH_NO_ENTRY_FOUND:
+		ret_val = QCA_WLAN_HANG_RX_HASH_NO_ENTRY_FOUND;
+		break;
+	case CDS_PEER_DELETION_TIMEDOUT:
+		ret_val = QCA_WLAN_HANG_PEER_DELETION_TIMEDOUT;
+		break;
+	case CDS_PEER_UNMAP_TIMEDOUT:
+		ret_val = QCA_WLAN_HANG_PEER_UNMAP_TIMEDOUT;
+		break;
+	case CDS_SCAN_REQ_EXPIRED:
+		ret_val = QCA_WLAN_HANG_SCAN_REQ_EXPIRED;
+		break;
+	case CDS_SCAN_ATTEMPT_FAILURES:
+		ret_val = QCA_WLAN_HANG_SCAN_ATTEMPT_FAILURES;
+		break;
+	case CDS_GET_MSG_BUFF_FAILURE:
+		ret_val = QCA_WLAN_HANG_GET_MSG_BUFF_FAILURE;
+		break;
+	case CDS_ACTIVE_LIST_TIMEOUT:
+		ret_val = QCA_WLAN_HANG_ACTIVE_LIST_TIMEOUT;
+		break;
+	case CDS_SUSPEND_TIMEOUT:
+		ret_val = QCA_WLAN_HANG_SUSPEND_TIMEOUT;
+		break;
+	case CDS_RESUME_TIMEOUT:
+		ret_val = QCA_WLAN_HANG_RESUME_TIMEOUT;
+		break;
+	case CDS_REASON_UNSPECIFIED:
+	default:
+		ret_val = QCA_WLAN_HANG_REASON_UNSPECIFIED;
+	}
+	return ret_val;
+}
+
+/**
+ * wlan_hdd_send_hang_reason_event() - Send hang reason to the userspace
+ * @hdd_ctx: Pointer to hdd context
+ * @reason: cds recovery reason
+ *
+ * Return: 0 on success or failure reason
+ */
+int wlan_hdd_send_hang_reason_event(hdd_context_t *hdd_ctx,
+				    enum cds_hang_reason reason)
+{
+	struct sk_buff *vendor_event;
+	enum qca_wlan_vendor_hang_reason hang_reason;
+
+	ENTER();
+
+	if (!hdd_ctx) {
+		hdd_err("HDD context is null");
+		return -EINVAL;
+	}
+
+	vendor_event = cfg80211_vendor_event_alloc(hdd_ctx->wiphy,
+						   NULL,
+						   sizeof(uint32_t),
+						   HANG_REASON_INDEX,
+						   GFP_KERNEL);
+	if (!vendor_event) {
+		hdd_err("cfg80211_vendor_event_alloc failed");
+		return -ENOMEM;
+	}
+
+	hang_reason = hdd_convert_hang_reason(reason);
+
+	if (nla_put_u32(vendor_event, QCA_WLAN_VENDOR_ATTR_HANG_REASON,
+			(uint32_t) hang_reason)) {
+		hdd_err("QCA_WLAN_VENDOR_ATTR_HANG_REASON put fail");
+		kfree_skb(vendor_event);
+		return -EINVAL;
+	}
+
+	cfg80211_vendor_event(vendor_event, GFP_KERNEL);
+
+	EXIT();
+	return 0;
+}
+#undef HANG_REASON_INDEX
+
 /* vendor specific events */
 static const struct nl80211_vendor_cmd_info wlan_hdd_cfg80211_vendor_events[] = {
 #ifdef FEATURE_WLAN_CH_AVOID
@@ -1085,7 +1184,11 @@ static const struct nl80211_vendor_cmd_info wlan_hdd_cfg80211_vendor_events[] = 
 	[QCA_NL80211_VENDOR_SUBCMD_PWR_SAVE_FAIL_DETECTED_INDEX] = {
 		.vendor_id = QCA_NL80211_VENDOR_ID,
 		.subcmd = QCA_NL80211_VENDOR_SUBCMD_CHIP_PWRSAVE_FAILURE
-	}
+	},
+	[QCA_NL80211_VENDOR_SUBCMD_HANG_REASON_INDEX] = {
+		.vendor_id = QCA_NL80211_VENDOR_ID,
+		.subcmd = QCA_NL80211_VENDOR_SUBCMD_HANG,
+	},
 };
 
 /**
@@ -1260,8 +1363,8 @@ int wlan_hdd_sap_cfg_dfs_override(hdd_adapter_t *adapter)
  * Return: None
  */
 
-static void wlan_hdd_set_acs_ch_range(tsap_Config_t *sap_cfg, bool ht_enabled,
-							bool vht_enabled)
+static void wlan_hdd_set_acs_ch_range(tsap_Config_t *sap_cfg,
+			bool ht_enabled, bool vht_enabled)
 {
 	int i;
 	if (sap_cfg->acs_cfg.hw_mode == QCA_ACS_MODE_IEEE80211B) {
@@ -1408,7 +1511,6 @@ static int __wlan_hdd_cfg80211_do_acs(struct wiphy *wiphy,
 	struct nlattr *tb[QCA_WLAN_VENDOR_ATTR_ACS_MAX + 1];
 	bool ht_enabled, ht40_enabled, vht_enabled;
 	uint8_t ch_width;
-	uint8_t weight_list[QDF_MAX_NUM_CHAN];
 
 	/* ***Note*** Donot set SME config related to ACS operation here because
 	 * ACS operation is not synchronouse and ACS for Second AP may come when
@@ -1553,9 +1655,10 @@ static int __wlan_hdd_cfg80211_do_acs(struct wiphy *wiphy,
 
 	/* consult policy manager to get PCL */
 	status = cds_get_pcl(CDS_SAP_MODE,
-				sap_config->acs_cfg.pcl_channels,
-				&sap_config->acs_cfg.pcl_ch_count,
-				weight_list, QDF_ARRAY_SIZE(weight_list));
+			sap_config->acs_cfg.pcl_channels,
+			&sap_config->acs_cfg.pcl_ch_count,
+			sap_config->acs_cfg.weight_list,
+			QDF_ARRAY_SIZE(sap_config->acs_cfg.weight_list));
 	if (QDF_STATUS_SUCCESS != status)
 		hdd_err("Get PCL failed");
 
@@ -1573,7 +1676,8 @@ static int __wlan_hdd_cfg80211_do_acs(struct wiphy *wiphy,
 			sap_config->acs_cfg.ch_width = eHT_CHANNEL_WIDTH_40MHZ;
 	}
 
-	wlan_hdd_set_acs_ch_range(sap_config, ht_enabled, vht_enabled);
+	wlan_hdd_set_acs_ch_range(sap_config,
+			ht_enabled, vht_enabled);
 
 	hdd_notice("ACS Config for wlan%d: HW_MODE: %d ACS_BW: %d HT: %d VHT: %d START_CH: %d END_CH: %d",
 		adapter->dev->ifindex, sap_config->acs_cfg.hw_mode,
@@ -2274,6 +2378,12 @@ __wlan_hdd_cfg80211_get_features(struct wiphy *wiphy,
 	}
 
 	hdd_info("dbs_capability is %d", dbs_capability);
+
+	if (nla_put_u32(skb,
+			QCA_WLAN_VENDOR_ATTR_CONCURRENCY_CAPA,
+			dbs_capability))
+		goto nla_put_failure;
+
 
 	if (nla_put_u32(skb,
 			QCA_WLAN_VENDOR_ATTR_MAX_CONCURRENT_CHANNELS_2_4_BAND,
@@ -3344,8 +3454,8 @@ hdd_add_link_standard_info(struct sk_buff *skb,
 		goto fail;
 	if (nla_put(skb,
 		    NL80211_ATTR_SSID,
-		    hdd_sta_ctx->conn_info.SSID.SSID.length,
-		    hdd_sta_ctx->conn_info.SSID.SSID.ssId)) {
+		    hdd_sta_ctx->conn_info.last_ssid.SSID.length,
+		    hdd_sta_ctx->conn_info.last_ssid.SSID.ssId)) {
 		hdd_err("put fail");
 		goto fail;
 	}
@@ -3414,14 +3524,14 @@ static int hdd_get_station_info(hdd_context_t *hdd_ctx,
 	hdd_sta_ctx = WLAN_HDD_GET_STATION_CTX_PTR(adapter);
 
 	nl_buf_len = NLMSG_HDRLEN;
-	nl_buf_len += sizeof(hdd_sta_ctx->conn_info.SSID.SSID.length) +
+	nl_buf_len += sizeof(hdd_sta_ctx->conn_info.last_ssid.SSID.length) +
 		      sizeof(hdd_sta_ctx->conn_info.freq) +
 		      sizeof(hdd_sta_ctx->conn_info.noise) +
 		      sizeof(hdd_sta_ctx->conn_info.signal) +
 		      (sizeof(uint32_t) * 2) +
 		      sizeof(hdd_sta_ctx->conn_info.txrate.nss) +
 		      sizeof(hdd_sta_ctx->conn_info.roam_count) +
-		      sizeof(hdd_sta_ctx->conn_info.authType) +
+		      sizeof(hdd_sta_ctx->conn_info.last_auth_type) +
 		      sizeof(hdd_sta_ctx->conn_info.dot11Mode);
 	if (hdd_sta_ctx->conn_info.conn_flag.vht_present)
 		nl_buf_len += sizeof(hdd_sta_ctx->conn_info.vht_caps);
@@ -3458,7 +3568,7 @@ static int hdd_get_station_info(hdd_context_t *hdd_ctx,
 			hdd_sta_ctx->conn_info.roam_count) ||
 	    nla_put_u32(skb, INFO_AKM,
 			hdd_convert_auth_type(
-			hdd_sta_ctx->conn_info.authType)) ||
+			hdd_sta_ctx->conn_info.last_auth_type)) ||
 	    nla_put_u32(skb, WLAN802_11_MODE,
 			hdd_convert_dot11mode(
 			hdd_sta_ctx->conn_info.dot11Mode))) {
@@ -5449,6 +5559,11 @@ __wlan_hdd_cfg80211_set_ns_offload(struct wiphy *wiphy,
 		return status;
 	if (!pHddCtx->config->fhostNSOffload) {
 		hdd_err("ND Offload not supported");
+		return -EINVAL;
+	}
+
+	if (!pHddCtx->config->active_mode_offload) {
+		hdd_warn("Active mode offload is disabled");
 		return -EINVAL;
 	}
 
@@ -8951,6 +9066,11 @@ static int __wlan_hdd_cfg80211_get_nud_stats(struct wiphy *wiphy,
 	context = &hdd_ctx->nud_stats_context;
 	INIT_COMPLETION(context->response_event);
 	spin_unlock(&hdd_context_lock);
+
+	ol_txrx_post_data_stall_event(DATA_STALL_LOG_INDICATOR_FRAMEWORK,
+				      DATA_STALL_LOG_NUD_FAILURE,
+				      0xFF, 0XFF,
+				      DATA_STALL_LOG_RECOVERY_TRIGGER_PDR);
 
 	if (QDF_STATUS_SUCCESS !=
 	    sme_get_nud_debug_stats(hdd_ctx->hHal, &arp_stats_params)) {
@@ -12515,12 +12635,13 @@ static bool wlan_hdd_handle_sap_sta_dfs_conc(hdd_adapter_t *adapter,
 	}
 
 	/*
-	 * If channel is 0 or DFS then better to call pcl and find out the
-	 * best channel. If channel is non-dfs 5 GHz then better move SAP
-	 * to STA's channel to make scc, so we have room for 3port MCC
-	 * scenario.
+	 * If channel is 0 or DFS or LTE unsafe then better to call pcl and
+	 * find out the best channel. If channel is non-dfs 5 GHz then
+	 * better move SAP to STA's channel to make scc, so we have room
+	 * for 3port MCC scenario.
 	 */
-	if ((0 == channel) || CDS_IS_DFS_CH(channel))
+	if ((0 == channel) || CDS_IS_DFS_CH(channel) ||
+		!cds_is_safe_channel(channel))
 		channel = cds_get_nondfs_preferred_channel(CDS_SAP_MODE,
 								true);
 
@@ -12528,7 +12649,7 @@ static bool wlan_hdd_handle_sap_sta_dfs_conc(hdd_adapter_t *adapter,
 	qdf_event_reset(&hostapd_state->qdf_event);
 	status = wlansap_set_channel_change_with_csa(
 			WLAN_HDD_GET_SAP_CTX_PTR(ap_adapter), channel,
-			hdd_ap_ctx->sapConfig.ch_width_orig);
+			hdd_ap_ctx->sapConfig.ch_width_orig, false);
 
 	if (QDF_STATUS_SUCCESS != status) {
 		hdd_err("Set channel with CSA IE failed, can't allow STA");

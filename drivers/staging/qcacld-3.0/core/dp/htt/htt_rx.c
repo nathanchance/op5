@@ -620,18 +620,17 @@ static void htt_rx_ring_refill_retry(void *arg)
 	qdf_atomic_sub(num, &pdev->rx_ring.refill_debt);
 	filled = htt_rx_ring_fill_n(pdev, num);
 
-	qdf_spin_unlock_bh(&(pdev->rx_ring.refill_lock));
-
 	if (filled > num) {
 		/* we served ourselves and some other debt */
 		/* sub is safer than  = 0 */
 		qdf_atomic_sub(filled - num, &pdev->rx_ring.refill_debt);
 	} else if (num == filled) { /* nothing to be done */
 	} else {
+		qdf_atomic_add(num - filled, &pdev->rx_ring.refill_debt);
 		/* we could not fill all, timer must have been started */
 		pdev->refill_retry_timer_doubles++;
 	}
-
+	qdf_spin_unlock_bh(&(pdev->rx_ring.refill_lock));
 }
 #endif
 
@@ -1656,10 +1655,110 @@ int htt_mon_rx_handle_amsdu_packet(qdf_nbuf_t msdu, htt_pdev_handle pdev,
 	return 1;
 }
 
+#define SHORT_PREAMBLE 1
+#define LONG_PREAMBLE  0
+#ifdef HELIUMPLUS
 /**
- * htt_mon_rx_get_phy_info() - Get rate interms of 500Kbps.
- * @rx_desc: Pointer to struct htt_host_rx_desc_base
- * @rx_status: Return variable updated with phy_info in rx_status
+ * htt_rx_get_rate() - get rate info in terms of 500Kbps from htt_rx_desc
+ * @l_sig_rate_select: OFDM or CCK rate
+ * @l_sig_rate:
+ *
+ * If l_sig_rate_select is 0:
+ * 0x8: OFDM 48 Mbps
+ * 0x9: OFDM 24 Mbps
+ * 0xA: OFDM 12 Mbps
+ * 0xB: OFDM 6 Mbps
+ * 0xC: OFDM 54 Mbps
+ * 0xD: OFDM 36 Mbps
+ * 0xE: OFDM 18 Mbps
+ * 0xF: OFDM 9 Mbps
+ * If l_sig_rate_select is 1:
+ * 0x1:  DSSS 1 Mbps long preamble
+ * 0x2:  DSSS 2 Mbps long preamble
+ * 0x3:  CCK 5.5 Mbps long preamble
+ * 0x4:  CCK 11 Mbps long preamble
+ * 0x5:  DSSS 2 Mbps short preamble
+ * 0x6:  CCK 5.5 Mbps
+ * 0x7:  CCK 11 Mbps short  preamble
+ *
+ * Return: rate interms of 500Kbps.
+ */
+static unsigned char htt_rx_get_rate(uint32_t l_sig_rate_select,
+					uint32_t l_sig_rate, uint8_t *preamble)
+{
+	char ret = 0x0;
+	*preamble = LONG_PREAMBLE;
+	if (l_sig_rate_select == 0) {
+		switch (l_sig_rate) {
+		case 0x8:
+			ret = 0x60;
+			break;
+		case 0x9:
+			ret = 0x30;
+			break;
+		case 0xA:
+			ret = 0x18;
+			break;
+		case 0xB:
+			ret = 0x0c;
+			break;
+		case 0xC:
+			ret = 0x6c;
+			break;
+		case 0xD:
+			ret = 0x48;
+			break;
+		case 0xE:
+			ret = 0x24;
+			break;
+		case 0xF:
+			ret = 0x12;
+			break;
+		default:
+			break;
+		}
+	} else if (l_sig_rate_select == 1) {
+		switch (l_sig_rate) {
+		case 0x1:
+			ret = 0x2;
+			*preamble = LONG_PREAMBLE;
+			break;
+		case 0x2:
+			ret = 0x4;
+			*preamble = LONG_PREAMBLE;
+			break;
+		case 0x3:
+			ret = 0xB;
+			*preamble = LONG_PREAMBLE;
+			break;
+		case 0x4:
+			ret = 0x16;
+			*preamble = LONG_PREAMBLE;
+			break;
+		case 0x5:
+			ret = 0x4;
+			*preamble = SHORT_PREAMBLE;
+			break;
+		case 0x6:
+			ret = 0xB;
+			break;
+		case 0x7:
+			ret = 0x16;
+			*preamble = SHORT_PREAMBLE;
+			break;
+		default:
+			break;
+		}
+	} else {
+		qdf_print("Invalid rate info\n");
+	}
+	return ret;
+}
+#else
+/**
+ * htt_rx_get_rate() - get rate info in terms of 500Kbps from htt_rx_desc
+ * @l_sig_rate_select: OFDM or CCK rate
+ * @l_sig_rate:
  *
  * If l_sig_rate_select is 0:
  * 0x8: OFDM 48 Mbps
@@ -1672,54 +1771,45 @@ int htt_mon_rx_handle_amsdu_packet(qdf_nbuf_t msdu, htt_pdev_handle pdev,
  * 0xF: OFDM 9 Mbps
  * If l_sig_rate_select is 1:
  * 0x8: CCK 11 Mbps long preamble
- * 0x9: CCK 5.5 Mbps long preamble
+ *  0x9: CCK 5.5 Mbps long preamble
  * 0xA: CCK 2 Mbps long preamble
  * 0xB: CCK 1 Mbps long preamble
  * 0xC: CCK 11 Mbps short preamble
  * 0xD: CCK 5.5 Mbps short preamble
  * 0xE: CCK 2 Mbps short preamble
  *
- * Return: None
+ * Return: rate interms of 500Kbps.
  */
-static void htt_mon_rx_get_phy_info(struct htt_host_rx_desc_base *rx_desc,
-				    struct mon_rx_status *rx_status)
+static unsigned char htt_rx_get_rate(uint32_t l_sig_rate_select,
+					uint32_t l_sig_rate, uint8_t *preamble)
 {
-#define SHORT_PREAMBLE 1
-#define LONG_PREAMBLE  0
-	char rate = 0x0;
-	uint8_t preamble = SHORT_PREAMBLE;
-	uint8_t preamble_type = rx_desc->ppdu_start.preamble_type;
-	uint8_t mcs = 0, nss = 0, sgi = 0, bw = 0, beamformed = 0;
-	uint16_t vht_flags = 0, ht_flags = 0;
-	uint32_t l_sig_rate_select = rx_desc->ppdu_start.l_sig_rate_select;
-	uint32_t l_sig_rate = rx_desc->ppdu_start.l_sig_rate;
-	bool is_stbc = 0, ldpc = 0;
-
+	char ret = 0x0;
+	*preamble = SHORT_PREAMBLE;
 	if (l_sig_rate_select == 0) {
 		switch (l_sig_rate) {
 		case 0x8:
-			rate = 0x60;
+			ret = 0x60;
 			break;
 		case 0x9:
-			rate = 0x30;
+			ret = 0x30;
 			break;
 		case 0xA:
-			rate = 0x18;
+			ret = 0x18;
 			break;
 		case 0xB:
-			rate = 0x0c;
+			ret = 0x0c;
 			break;
 		case 0xC:
-			rate = 0x6c;
+			ret = 0x6c;
 			break;
 		case 0xD:
-			rate = 0x48;
+			ret = 0x48;
 			break;
 		case 0xE:
-			rate = 0x24;
+			ret = 0x24;
 			break;
 		case 0xF:
-			rate = 0x12;
+			ret = 0x12;
 			break;
 		default:
 			break;
@@ -1727,29 +1817,29 @@ static void htt_mon_rx_get_phy_info(struct htt_host_rx_desc_base *rx_desc,
 	} else if (l_sig_rate_select == 1) {
 		switch (l_sig_rate) {
 		case 0x8:
-			rate = 0x16;
-			preamble = LONG_PREAMBLE;
+			ret = 0x16;
+			*preamble = LONG_PREAMBLE;
 			break;
 		case 0x9:
-			rate = 0x0B;
-			preamble = LONG_PREAMBLE;
+			ret = 0x0B;
+			*preamble = LONG_PREAMBLE;
 			break;
 		case 0xA:
-			rate = 0x04;
-			preamble = LONG_PREAMBLE;
+			ret = 0x4;
+			*preamble = LONG_PREAMBLE;
 			break;
 		case 0xB:
-			rate = 0x02;
-			preamble = LONG_PREAMBLE;
+			ret = 0x02;
+			*preamble = LONG_PREAMBLE;
 			break;
 		case 0xC:
-			rate = 0x16;
+			ret = 0x16;
 			break;
 		case 0xD:
-			rate = 0x0B;
+			ret = 0x0B;
 			break;
 		case 0xE:
-			rate = 0x04;
+			ret = 0x04;
 			break;
 		default:
 			break;
@@ -1757,8 +1847,33 @@ static void htt_mon_rx_get_phy_info(struct htt_host_rx_desc_base *rx_desc,
 	} else {
 		qdf_print("Invalid rate info\n");
 	}
+	return ret;
+}
+#endif /* HELIUMPLUS */
+/**
+ * htt_mon_rx_get_phy_info() - Get phy info
+ * @rx_desc: Pointer to struct htt_host_rx_desc_base
+ * @rx_status: Return variable updated with phy_info in rx_status
+ *
+ * Return: None
+ */
+static void htt_mon_rx_get_phy_info(struct htt_host_rx_desc_base *rx_desc,
+				    struct mon_rx_status *rx_status)
+{
+	uint8_t preamble = 0;
+	uint8_t preamble_type = rx_desc->ppdu_start.preamble_type;
+	uint8_t mcs = 0, nss = 0, sgi = 0, bw = 0, beamformed = 0;
+	uint16_t vht_flags = 0, ht_flags = 0;
+	uint32_t l_sig_rate_select = rx_desc->ppdu_start.l_sig_rate_select;
+	uint32_t l_sig_rate = rx_desc->ppdu_start.l_sig_rate;
+	bool is_stbc = 0, ldpc = 0;
 
 	switch (preamble_type) {
+	case 4:
+	/* legacy */
+		rx_status->rate = htt_rx_get_rate(l_sig_rate_select, l_sig_rate,
+						&preamble);
+		break;
 	case 8:
 		is_stbc = ((VHT_SIG_A_2(rx_desc) >> 4) & 3);
 		/* fallthrough */
@@ -1817,7 +1932,6 @@ static void htt_mon_rx_get_phy_info(struct htt_host_rx_desc_base *rx_desc,
 	rx_status->ldpc = ldpc;
 	rx_status->beamformed = beamformed;
 	rx_status->vht_flag_values3[0] = mcs << 0x4 | (nss + 1);
-	rx_status->rate = rate;
 	rx_status->ht_flags = ht_flags;
 	rx_status->vht_flags = vht_flags;
 	rx_status->rtap_flags |= ((preamble == SHORT_PREAMBLE) ? BIT(1) : 0);
@@ -2103,6 +2217,11 @@ uint32_t htt_rx_amsdu_rx_in_order_get_pktlog(qdf_nbuf_t rx_ind_msg)
 
 #ifndef CONFIG_HL_SUPPORT
 /* Return values: 1 - success, 0 - failure */
+#define RX_DESC_DISCARD_IS_SET ((*((u_int8_t *) &rx_desc->fw_desc.u.val)) & \
+							FW_RX_DESC_DISCARD_M)
+#define RX_DESC_MIC_ERR_IS_SET ((*((u_int8_t *) &rx_desc->fw_desc.u.val)) & \
+							FW_RX_DESC_ANY_ERR_M)
+
 static int
 htt_rx_amsdu_rx_in_order_pop_ll(htt_pdev_handle pdev,
 				qdf_nbuf_t rx_ind_msg,
@@ -2153,6 +2272,7 @@ htt_rx_amsdu_rx_in_order_pop_ll(htt_pdev_handle pdev,
 	if (qdf_unlikely(NULL == msdu)) {
 		qdf_print("%s: netbuf pop failed!\n", __func__);
 		*tail_msdu = NULL;
+		pdev->rx_ring.pop_fail_cnt++;
 		return 0;
 	}
 
@@ -2213,15 +2333,16 @@ htt_rx_amsdu_rx_in_order_pop_ll(htt_pdev_handle pdev,
 
 		/* calling callback function for packet logging */
 		if (pdev->rx_pkt_dump_cb) {
-			if (qdf_unlikely((*((u_int8_t *)
-				   &rx_desc->fw_desc.u.val)) &
-				   FW_RX_DESC_ANY_ERR_M))
+			if (qdf_unlikely(RX_DESC_MIC_ERR_IS_SET &&
+						!RX_DESC_DISCARD_IS_SET))
 				status = RX_PKT_FATE_FW_DROP_INVALID;
 			pdev->rx_pkt_dump_cb(msdu, peer_id, status);
 		}
-
-		if (qdf_unlikely((*((u_int8_t *) &rx_desc->fw_desc.u.val)) &
-				    FW_RX_DESC_ANY_ERR_M)) {
+		/* if discard flag is set (SA is self MAC), then
+		 * don't check mic failure.
+		 */
+		if (qdf_unlikely(RX_DESC_MIC_ERR_IS_SET &&
+					!RX_DESC_DISCARD_IS_SET)) {
 			uint8_t tid =
 				HTT_RX_IN_ORD_PADDR_IND_EXT_TID_GET(
 					*(u_int32_t *)rx_ind_data);
@@ -2249,6 +2370,7 @@ htt_rx_amsdu_rx_in_order_pop_ll(htt_pdev_handle pdev,
 					qdf_print("%s: netbuf pop failed!\n",
 								 __func__);
 					*tail_msdu = NULL;
+					pdev->rx_ring.pop_fail_cnt++;
 					return 0;
 				}
 
@@ -2280,6 +2402,7 @@ htt_rx_amsdu_rx_in_order_pop_ll(htt_pdev_handle pdev,
 				qdf_print("%s: netbuf pop failed!\n",
 					  __func__);
 				*tail_msdu = NULL;
+				pdev->rx_ring.pop_fail_cnt++;
 				return 0;
 			}
 			qdf_nbuf_set_next(msdu, next);
@@ -3040,15 +3163,17 @@ int htt_rx_msdu_buff_in_order_replenish(htt_pdev_handle pdev, uint32_t num)
 		qdf_spin_lock_bh(&(pdev->rx_ring.refill_lock));
 	}
 	pdev->rx_buff_fill_n_invoked++;
-	filled = htt_rx_ring_fill_n(pdev, num);
 
-	qdf_spin_unlock_bh(&(pdev->rx_ring.refill_lock));
+	filled = htt_rx_ring_fill_n(pdev, num);
 
 	if (filled > num) {
 		/* we served ourselves and some other debt */
 		/* sub is safer than  = 0 */
 		qdf_atomic_sub(filled - num, &pdev->rx_ring.refill_debt);
+	} else {
+		qdf_atomic_add(num - filled, &pdev->rx_ring.refill_debt);
 	}
+	qdf_spin_unlock_bh(&(pdev->rx_ring.refill_lock));
 
 	return filled;
 }
@@ -3255,7 +3380,7 @@ qdf_nbuf_t htt_rx_hash_list_lookup(struct htt_pdev_t *pdev,
 		qdf_print("rx hash: %s: no entry found for %p!\n",
 			  __func__, (void *)paddr);
 		if (cds_is_self_recovery_enabled())
-			cds_trigger_recovery();
+			cds_trigger_recovery(CDS_RX_HASH_NO_ENTRY_FOUND);
 		else
 			HTT_ASSERT_ALWAYS(0);
 	}
@@ -3476,6 +3601,7 @@ int htt_rx_attach(struct htt_pdev_t *pdev)
 		 QDF_TIMER_TYPE_SW);
 
 	pdev->rx_ring.fill_cnt = 0;
+	pdev->rx_ring.pop_fail_cnt = 0;
 #ifdef DEBUG_DMA_DONE
 	pdev->rx_ring.dbg_ring_idx = 0;
 	pdev->rx_ring.dbg_refill_cnt = 0;

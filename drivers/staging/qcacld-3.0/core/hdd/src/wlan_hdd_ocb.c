@@ -278,7 +278,7 @@ static int hdd_ocb_register_sta(hdd_adapter_t *adapter)
 		return -EINVAL;
 	}
 
-	if (pHddStaCtx->conn_info.staId[0] != 0 &&
+	if (pHddStaCtx->conn_info.staId[0] != HDD_WLAN_INVALID_STA_ID &&
 	     pHddStaCtx->conn_info.staId[0] != peer_id) {
 		hdd_warn("The ID for the OCB station has changed.");
 	}
@@ -880,10 +880,6 @@ static int __wlan_hdd_cfg80211_ocb_set_config(struct wiphy *wiphy,
 	config->def_tx_param_size = def_tx_param_size;
 
 	/* Read the channel array */
-	if (!tb[QCA_WLAN_VENDOR_ATTR_OCB_SET_CONFIG_CHANNEL_ARRAY]) {
-		hdd_err("CHANNEL_ARRAY is not present");
-		return -EINVAL;
-	}
 	channel_array = tb[QCA_WLAN_VENDOR_ATTR_OCB_SET_CONFIG_CHANNEL_ARRAY];
 	if (!channel_array) {
 		hdd_err("No channel present");

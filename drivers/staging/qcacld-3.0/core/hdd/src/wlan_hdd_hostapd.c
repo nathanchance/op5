@@ -1841,6 +1841,11 @@ QDF_STATUS hdd_hostapd_sap_event_cb(tpSap_Event pSapEvent,
 		wlan_hdd_auto_shutdown_enable(pHddCtx, true);
 #endif
 
+		cds_host_diag_log_work(&pHddCtx->sap_wake_lock,
+				       HDD_SAP_WAKE_LOCK_DURATION,
+				       WIFI_POWER_EVENT_WAKELOCK_SAP);
+		qdf_wake_lock_timeout_acquire(&pHddCtx->sap_wake_lock,
+			 HDD_SAP_CLIENT_DISCONNECT_WAKE_LOCK_DURATION);
 		cfg80211_del_sta(dev,
 				 (const u8 *)&pSapEvent->sapevt.
 				 sapStationDisassocCompleteEvent.staMac.
@@ -2352,7 +2357,7 @@ int hdd_softap_set_channel_change(struct net_device *dev, int target_channel,
 	status = wlansap_set_channel_change_with_csa(
 		WLAN_HDD_GET_SAP_CTX_PTR(pHostapdAdapter),
 		(uint32_t)target_channel,
-		target_bw);
+		target_bw, true);
 
 	if (QDF_STATUS_SUCCESS != status) {
 		hdd_err("SAP set channel failed for channel = %d, bw:%d",
@@ -8027,11 +8032,6 @@ static int __wlan_hdd_cfg80211_stop_ap(struct wiphy *wiphy,
 	pConfig->acs_cfg.acs_mode = false;
 	wlan_hdd_undo_acs(pAdapter);
 	qdf_mem_zero(&pConfig->acs_cfg, sizeof(struct sap_acs_cfg));
-
-	/* Remove the channel no from sap mandatory list if it is a
-	 * 5GHz channel */
-	if (CDS_IS_CHANNEL_5GHZ(pConfig->channel))
-		cds_remove_sap_mandatory_chan(pConfig->channel);
 
 	/* Stop all tx queues */
 	hdd_notice("Disabling queues");

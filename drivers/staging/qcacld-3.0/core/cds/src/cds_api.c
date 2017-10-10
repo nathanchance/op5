@@ -456,10 +456,14 @@ QDF_STATUS cds_open(void)
 			  "%s: HTCHandle is null!", __func__);
 		goto err_wma_close;
 	}
-	if (htc_wait_target(HTCHandle)) {
+
+	qdf_status = htc_wait_target(HTCHandle);
+	if (!QDF_IS_STATUS_SUCCESS(qdf_status)) {
 		QDF_TRACE(QDF_MODULE_ID_QDF, QDF_TRACE_LEVEL_FATAL,
 			  "%s: Failed to complete BMI phase", __func__);
-		if (!cds_is_fw_down())
+
+		if (qdf_status != QDF_STATUS_E_NOMEM
+				&& !cds_is_fw_down())
 			QDF_BUG(0);
 
 		goto err_wma_close;
@@ -1350,6 +1354,9 @@ QDF_STATUS cds_set_context(QDF_MODULE_ID module_id, void *context)
 	case QDF_MODULE_ID_HIF:
 		p_cds_context->pHIFContext = context;
 		break;
+	case QDF_MODULE_ID_HDD:
+		p_cds_context->pHDDContext = context;
+		break;
 	default:
 		QDF_TRACE(QDF_MODULE_ID_QDF, QDF_TRACE_LEVEL_ERROR,
 			  "%s: Module ID %i does not have its context managed by CDS",
@@ -1856,12 +1863,51 @@ static void cds_trigger_recovery_work(void *param)
 }
 
 /**
+ * cds_get_recovery_reason() - get self recovery reason
+ * @reason: recovery reason
+ *
+ * Return: None
+ */
+void cds_get_recovery_reason(enum cds_hang_reason *reason)
+{
+	if (!gp_cds_context) {
+		cds_err("gp_cds_context is null");
+		return;
+	}
+
+	*reason = gp_cds_context->recovery_reason;
+}
+
+/**
+ * cds_reset_recovery_reason() - reset the reason to unspecified
+ *
+ * Return: None
+ */
+void cds_reset_recovery_reason(void)
+{
+	if (!gp_cds_context) {
+		cds_err("gp_cds_context is null");
+		return;
+	}
+
+	gp_cds_context->recovery_reason = CDS_REASON_UNSPECIFIED;
+}
+
+/**
  * cds_trigger_recovery() - trigger self recovery
+ * @reason: recovery reason
  *
  * Return: none
  */
-void cds_trigger_recovery(void)
+void cds_trigger_recovery(enum cds_hang_reason reason)
 {
+	if (!gp_cds_context) {
+		cds_err("gp_cds_context is null");
+		return;
+	}
+
+	gp_cds_context->recovery_reason = reason;
+
 	if (in_atomic()) {
 		qdf_queue_work(0, gp_cds_context->cds_recovery_wq,
 				&gp_cds_context->cds_recovery_work);

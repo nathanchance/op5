@@ -55,6 +55,7 @@
 #endif /* FEATURE_AP_MCC_CH_AVOIDANCE */
 #include "cds_utils.h"
 #include "pld_common.h"
+#include "cds_concurrency.h"
 
 /*--------------------------------------------------------------------------
    Function definitions
@@ -508,7 +509,6 @@ uint8_t sap_select_preferred_channel_from_channel_list(uint8_t best_chnl,
 	if (best_chnl <= 0 || best_chnl > 252)
 		return SAP_CHANNEL_NOT_SELECTED;
 
-	/* Select the best channel from allowed list */
 	for (i = 0; i < sap_ctx->acs_cfg->ch_list_count; i++) {
 		if (sap_ctx->acs_cfg->ch_list[i] == best_chnl) {
 			QDF_TRACE(QDF_MODULE_ID_SAP,
@@ -2274,13 +2274,29 @@ uint8_t sap_select_channel(tHalHandle hal, ptSapContext sap_ctx,
 		if (best_ch_num == SAP_CHANNEL_NOT_SELECTED)
 			continue;
 
-		if (operating_band != eCSR_DOT11_MODE_11g)
+		if (operating_band != eCSR_DOT11_MODE_11g) {
+			QDF_TRACE(QDF_MODULE_ID_SAP,
+				QDF_TRACE_LEVEL_INFO_HIGH,
+				"operating_band %d", operating_band);
 			continue;
+		}
 
 		/* Give preference to Non-overlap channels */
 		if (false == sap_filter_over_lap_ch(sap_ctx,
-				spect_info->pSpectCh[count].chNum))
+				spect_info->pSpectCh[count].chNum)) {
+			QDF_TRACE(QDF_MODULE_ID_SAP,
+				QDF_TRACE_LEVEL_INFO_HIGH,
+				"sap_filter_over_lap_ch is false");
 			continue;
+		}
+
+		if (CDS_IS_DFS_CH(spect_info->pSpectCh[count].chNum) &&
+			cds_disallow_mcc(spect_info->pSpectCh[count].chNum)) {
+			QDF_TRACE(QDF_MODULE_ID_SAP,
+				QDF_TRACE_LEVEL_INFO_HIGH,
+				"No DFS MCC");
+			continue;
+		}
 
 		tmp_ch_num = spect_info->pSpectCh[count].chNum;
 		tmp_ch_num = sap_select_preferred_channel_from_channel_list(

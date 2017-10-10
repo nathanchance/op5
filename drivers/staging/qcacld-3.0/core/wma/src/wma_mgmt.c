@@ -2510,7 +2510,7 @@ void wma_send_beacon(tp_wma_handle wma, tpSendbeaconParams bcn_info)
 		if (bcn_info->p2pIeOffset) {
 			p2p_ie = bcn_info->beacon + bcn_info->p2pIeOffset;
 			WMA_LOGI
-				(" %s: p2pIe is present - vdev_id %hu, p2p_ie = %p, p2p ie len = %hu",
+				(" %s: p2pIe is present - vdev_id %hu, p2p_ie = %pK, p2p ie len = %hu",
 				__func__, vdev_id, p2p_ie, p2p_ie[1]);
 			if (wma_p2p_go_set_beacon_ie(wma, vdev_id, p2p_ie) < 0) {
 				WMA_LOGE
@@ -2532,9 +2532,8 @@ void wma_send_beacon(tp_wma_handle wma, tpSendbeaconParams bcn_info)
 		if (!wma->interfaces[vdev_id].vdev_up) {
 			param.vdev_id = vdev_id;
 			param.assoc_id = 0;
-			status = wmi_unified_vdev_up_send(wma->wmi_handle,
-					bcn_info->bssId,
-					&param);
+			status = wma_send_vdev_up_to_fw(wma, &param,
+							bcn_info->bssId);
 			if (QDF_IS_STATUS_ERROR(status)) {
 				WMA_LOGE(FL("failed to send vdev up"));
 				cds_set_do_hw_mode_change_flag(false);

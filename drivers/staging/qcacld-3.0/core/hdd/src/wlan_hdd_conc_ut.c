@@ -634,7 +634,7 @@ void wlan_hdd_one_connection_scenario(hdd_context_t *hdd_ctx)
 	QDF_STATUS ret;
 	struct cds_sme_cbacks sme_cbacks;
 
-	sme_cbacks.sme_get_valid_channels = sme_get_cfg_valid_channels;
+	sme_cbacks.sme_get_valid_channels = sme_cfg_get_str;
 	sme_cbacks.sme_get_nss_for_vdev = sme_get_vdev_type_nss;
 	/* flush the entire table first */
 	ret = cds_init_policy_mgr(&sme_cbacks);
@@ -693,7 +693,7 @@ void wlan_hdd_two_connections_scenario(hdd_context_t *hdd_ctx,
 		sub_type < CDS_MAX_NUM_OF_MODE; sub_type++) {
 		type = wlan_hdd_valid_type_of_persona(sub_type);
 
-		sme_cbacks.sme_get_valid_channels = sme_get_cfg_valid_channels;
+		sme_cbacks.sme_get_valid_channels = sme_cfg_get_str;
 		sme_cbacks.sme_get_nss_for_vdev = sme_get_vdev_type_nss;
 		/* flush the entire table first */
 		ret = cds_init_policy_mgr(&sme_cbacks);
@@ -795,7 +795,7 @@ void wlan_hdd_three_connections_scenario(hdd_context_t *hdd_ctx,
 
 		type_1 = wlan_hdd_valid_type_of_persona(sub_type_1);
 
-		sme_cbacks.sme_get_valid_channels = sme_get_cfg_valid_channels;
+		sme_cbacks.sme_get_valid_channels = sme_cfg_get_str;
 		sme_cbacks.sme_get_nss_for_vdev = sme_get_vdev_type_nss;
 		/* flush the entire table first */
 		ret = cds_init_policy_mgr(&sme_cbacks);

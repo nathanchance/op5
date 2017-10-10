@@ -708,4 +708,15 @@ void lim_decrement_pending_mgmt_count(tpAniSirGlobal mac_ctx);
 QDF_STATUS lim_util_get_type_subtype(void *pkt, uint8_t *type,
 					uint8_t *subtype);
 
+/**
+ * lim_get_min_session_txrate() - Get the minimum rate supported in the session
+ * @session: Pointer to PE session
+ *
+ * This API will find the minimum rate supported by the given PE session and
+ * return the enum rateid corresponding to the rate.
+ *
+ * Return: enum rateid
+ */
+uint8_t lim_get_min_session_txrate(tpPESession session);
+
 #endif /* __LIM_UTILS_H */

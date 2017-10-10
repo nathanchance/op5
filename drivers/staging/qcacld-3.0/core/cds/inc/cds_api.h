@@ -70,6 +70,7 @@ enum cds_driver_state {
 	CDS_DRIVER_STATE_LOADING	= BIT(1),
 	CDS_DRIVER_STATE_UNLOADING	= BIT(2),
 	CDS_DRIVER_STATE_RECOVERING	= BIT(3),
+	CDS_DRIVER_STATE_FW_READY	= BIT(4),
 };
 
 #define __CDS_IS_DRIVER_STATE(_state, _mask) (((_state) & (_mask)) == (_mask))
@@ -94,7 +95,8 @@ enum cds_fw_state {
  * @sme_get_nss_for_vdev: gets the nss allowed for the vdev type
  */
 struct cds_sme_cbacks {
-	QDF_STATUS (*sme_get_valid_channels)(void*, uint8_t *, uint32_t *);
+	QDF_STATUS (*sme_get_valid_channels)(void*, uint16_t,
+		uint8_t *, uint32_t *);
 	void (*sme_get_nss_for_vdev)(void*, enum tQDF_ADAPTER_MODE,
 		uint8_t *, uint8_t *);
 };
@@ -212,6 +214,18 @@ static inline bool cds_is_fw_down(void)
 }
 
 /**
+ * cds_is_target_ready() - Is target is in ready state
+ *
+ * Return: true if target is in ready state and false otherwise.
+ */
+static inline bool cds_is_target_ready(void)
+{
+	enum cds_driver_state state = cds_get_driver_state();
+
+	return __CDS_IS_DRIVER_STATE(state, CDS_DRIVER_STATE_FW_READY);
+}
+
+/**
  * cds_set_recovery_in_progress() - Set recovery in progress
  * @value: value to set
  *
@@ -223,6 +237,20 @@ static inline void cds_set_recovery_in_progress(uint8_t value)
 		cds_set_driver_state(CDS_DRIVER_STATE_RECOVERING);
 	else
 		cds_clear_driver_state(CDS_DRIVER_STATE_RECOVERING);
+}
+
+/**
+ * cds_set_target_ready() - Set target ready state
+ * @value: value to set
+ *
+ * Return: none
+ */
+static inline void cds_set_target_ready(uint8_t value)
+{
+	if (value)
+		cds_set_driver_state(CDS_DRIVER_STATE_FW_READY);
+	else
+		cds_clear_driver_state(CDS_DRIVER_STATE_FW_READY);
 }
 
 /**
@@ -318,7 +346,28 @@ bool cds_is_packet_log_enabled(void);
 
 uint64_t cds_get_monotonic_boottime(void);
 
-void cds_trigger_recovery(void);
+/**
+ * cds_get_recovery_reason() - get self recovery reason
+ * @reason: cds hang reason
+ *
+ * Return: None
+ */
+void cds_get_recovery_reason(enum cds_hang_reason *reason);
+
+/**
+ * cds_reset_recovery_reason() - reset the reason to unspecified
+ *
+ * Return: None
+ */
+void cds_reset_recovery_reason(void);
+
+/**
+ * cds_trigger_recovery() - trigger self recovery
+ * @reason: recovery reason
+ *
+ * Return: none
+ */
+void cds_trigger_recovery(enum cds_hang_reason reason);
 
 void cds_set_wakelock_logging(bool value);
 bool cds_is_wakelock_enabled(void);

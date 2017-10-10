@@ -1548,6 +1548,12 @@ int wma_nan_rsp_event_handler(void *handle, uint8_t *event_buf,
 	buf_ptr = (uint8_t *) nan_rsp_event_hdr;
 	alloc_len = sizeof(tSirNanEvent);
 	alloc_len += nan_rsp_event_hdr->data_len;
+	if (nan_rsp_event_hdr->data_len > ((WMI_SVC_MSG_MAX_SIZE -
+	    sizeof(*nan_rsp_event_hdr)) / sizeof(uint8_t))) {
+		WMA_LOGE("excess data length:%d", nan_rsp_event_hdr->data_len);
+		QDF_ASSERT(0);
+		return -EINVAL;
+	}
 	nan_rsp_event = (tSirNanEvent *) qdf_mem_malloc(alloc_len);
 	if (NULL == nan_rsp_event) {
 		WMA_LOGE("%s: Memory allocation failure", __func__);
@@ -4120,7 +4126,7 @@ QDF_STATUS wma_enable_wow_in_fw(WMA_HANDLE handle, uint32_t wow_flags)
 			 wmi_get_pending_cmds(wma->wmi_handle));
 		wmi_set_target_suspend(wma->wmi_handle, false);
 		if (!cds_is_driver_recovering()) {
-			cds_trigger_recovery();
+			cds_trigger_recovery(CDS_SUSPEND_TIMEOUT);
 		} else {
 			WMA_LOGE("%s: LOGP is in progress, ignore!", __func__);
 		}
@@ -4143,7 +4149,7 @@ QDF_STATUS wma_enable_wow_in_fw(WMA_HANDLE handle, uint32_t wow_flags)
 			 wmi_pending_cmds);
 		htc_dump_counter_info(wma->htc_handle);
 		if (!cds_is_driver_recovering())
-			cds_trigger_recovery();
+			cds_trigger_recovery(CDS_SUSPEND_TIMEOUT);
 		else
 			WMA_LOGE("%s: SSR in progress, ignore no credit issue",
 				 __func__);
@@ -4884,7 +4890,7 @@ static QDF_STATUS wma_send_host_wakeup_ind_to_fw(tp_wma_handle wma)
 			 wmi_get_host_credits(wma->wmi_handle));
 		if (!cds_is_driver_recovering()) {
 			wmi_tag_crash_inject(wma->wmi_handle, true);
-			cds_trigger_recovery();
+			cds_trigger_recovery(CDS_RESUME_TIMEOUT);
 		} else {
 			WMA_LOGE("%s: SSR in progress, ignore resume timeout",
 				 __func__);
@@ -6874,7 +6880,7 @@ static inline void wma_suspend_target_timeout(bool is_self_recovery_enabled)
 		WMA_LOGE("%s: Module recovering; Ignoring suspend timeout",
 			 __func__);
 	else
-		cds_trigger_recovery();
+		cds_trigger_recovery(CDS_SUSPEND_TIMEOUT);
 }
 
 /**
@@ -7044,7 +7050,7 @@ QDF_STATUS wma_resume_target(WMA_HANDLE handle)
 			wmi_get_pending_cmds(wma->wmi_handle),
 			wmi_get_host_credits(wma->wmi_handle));
 		if (!cds_is_driver_recovering()) {
-			cds_trigger_recovery();
+			cds_trigger_recovery(CDS_RESUME_TIMEOUT);
 		} else {
 			WMA_LOGE("%s: SSR in progress, ignore resume timeout",
 				__func__);

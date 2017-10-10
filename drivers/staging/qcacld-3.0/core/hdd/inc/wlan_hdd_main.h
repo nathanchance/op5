@@ -86,6 +86,9 @@
 #else
 #define HDD_TX_TIMEOUT          msecs_to_jiffies(5000)
 #endif
+
+#define HDD_TX_STALL_THRESHOLD 4
+
 /** Hdd Default MTU */
 #define HDD_DEFAULT_MTU         (1500)
 
@@ -229,6 +232,9 @@
 #define WLAN_HDD_QOS_ACTION_FRAME 1
 #define WLAN_HDD_QOS_MAP_CONFIGURE 4
 #define HDD_SAP_WAKE_LOCK_DURATION 10000        /* in msecs */
+
+/* SAP client disconnect wake lock duration in milli seconds */
+#define HDD_SAP_CLIENT_DISCONNECT_WAKE_LOCK_DURATION (1000)
 
 #if defined(CONFIG_HL_SUPPORT)
 #define HDD_MOD_EXIT_SSR_MAX_RETRIES 200
@@ -410,6 +416,11 @@ typedef struct hdd_tx_rx_stats_s {
 	__u32    txflow_pause_cnt;
 	__u32    txflow_unpause_cnt;
 	__u32    txflow_timer_cnt;
+
+	/*tx timeout stats*/
+	__u32 tx_timeout_cnt;
+	__u32 cont_txtimeout_cnt;
+	u64 jiffies_last_txtimeout;
 } hdd_tx_rx_stats_t;
 
 #ifdef WLAN_FEATURE_11W
@@ -1418,6 +1429,16 @@ enum hdd_sta_smps_param {
 	HDD_STA_SMPS_PARAM_DTIM_1CHRX_ENABLE = 5
 };
 
+/**
+ * struct sta_ap_intf_check_work_ctx - sta_ap_intf_check_work
+ * related info
+ * @adapter: adaptor of the interface to which SAP to do SCC
+ *         with
+ */
+struct sta_ap_intf_check_work_ctx {
+	hdd_adapter_t *adapter;
+};
+
 /** Adapter structure definition */
 struct hdd_context_s {
 	/** Global CDS context  */
@@ -1702,6 +1723,7 @@ struct hdd_context_s {
 	int user_configured_pkt_filter_rules;
 	struct hdd_nud_stats_context nud_stats_context;
 	uint32_t track_arp_ip;
+	struct sta_ap_intf_check_work_ctx *sta_ap_intf_check_work_info;
 };
 
 /*---------------------------------------------------------------------------

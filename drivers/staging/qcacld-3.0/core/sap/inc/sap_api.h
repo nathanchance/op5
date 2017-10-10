@@ -500,6 +500,7 @@ struct sap_acs_cfg {
 	uint16_t   ch_width;
 	uint8_t    pcl_channels[QDF_MAX_NUM_CHAN];
 	uint32_t   pcl_ch_count;
+	uint8_t    weight_list[QDF_MAX_NUM_CHAN];
 	/* ACS Algo Output */
 	uint8_t    pri_ch;
 	uint8_t    ht_sec_ch;
@@ -898,7 +899,7 @@ QDF_STATUS wlansap_disassoc_sta(void *p_cds_gctx,
 QDF_STATUS wlansap_deauth_sta(void *p_cds_gctx,
 			struct tagCsrDelStaParams *pDelStaParams);
 QDF_STATUS wlansap_set_channel_change_with_csa(void *p_cds_gctx,
-			uint32_t targetChannel, enum phy_ch_width target_bw);
+	uint32_t targetChannel, enum phy_ch_width target_bw, bool strict);
 QDF_STATUS wlansap_set_key_sta(void *p_cds_gctx,
 	tCsrRoamSetKey *pSetKeyInfo);
 QDF_STATUS wlansap_get_assoc_stations(void *p_cds_gctx,

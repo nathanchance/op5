@@ -86,6 +86,7 @@
 #include "epping_main.h"
 #include <a_types.h>
 #include "wma_api.h"
+#include "wlan_qct_sys.h"
 
 #include <htt_internal.h>
 
@@ -2348,6 +2349,8 @@ void ol_txrx_flush_cache_rx_queue(void)
 	}
 }
 
+/* Define short name to use in cds_trigger_recovery */
+#define PEER_DEL_TIMEOUT CDS_PEER_DELETION_TIMEDOUT
 
 /**
  * ol_txrx_peer_attach - Allocate and set up references for a
@@ -2396,12 +2399,12 @@ ol_txrx_peer_attach(ol_txrx_vdev_handle vdev, uint8_t *peer_mac_addr)
 		cmp_wait_mac = true;
 
 	qdf_spin_lock_bh(&pdev->peer_ref_mutex);
-	/* check for duplicate exsisting peer */
+	/* check for duplicate existing peer */
 	TAILQ_FOREACH(temp_peer, &vdev->peer_list, peer_list_elem) {
 		if (!ol_txrx_peer_find_mac_addr_cmp(&temp_peer->mac_addr,
 			(union ol_txrx_align_mac_addr_t *)peer_mac_addr)) {
 			TXRX_PRINT(TXRX_PRINT_LEVEL_ERR,
-				"vdev_id %d (%02x:%02x:%02x:%02x:%02x:%02x) already exsist.\n",
+				"vdev_id %d (%02x:%02x:%02x:%02x:%02x:%02x) already exists.\n",
 				vdev->vdev_id,
 				peer_mac_addr[0], peer_mac_addr[1],
 				peer_mac_addr[2], peer_mac_addr[3],
@@ -2420,7 +2423,7 @@ ol_txrx_peer_attach(ol_txrx_vdev_handle vdev, uint8_t *peer_mac_addr)
 					&temp_peer->mac_addr,
 					&vdev->last_peer_mac_addr)) {
 			TXRX_PRINT(TXRX_PRINT_LEVEL_INFO1,
-				"vdev_id %d (%02x:%02x:%02x:%02x:%02x:%02x) old peer exsist.\n",
+				"vdev_id %d (%02x:%02x:%02x:%02x:%02x:%02x) old peer exists.\n",
 				vdev->vdev_id,
 				vdev->last_peer_mac_addr.raw[0],
 				vdev->last_peer_mac_addr.raw[1],
@@ -2451,12 +2454,12 @@ ol_txrx_peer_attach(ol_txrx_vdev_handle vdev, uint8_t *peer_mac_addr)
 					   PEER_DELETION_TIMEOUT);
 		if (QDF_STATUS_SUCCESS != rc) {
 			TXRX_PRINT(TXRX_PRINT_LEVEL_ERR,
-				"error waiting for peer(%d) deletion, status %d\n",
+				"error waiting for peer_id(%d) deletion, status %d\n",
 				vdev->wait_on_peer_id, (int) rc);
 			/* Added for debugging only */
 			wma_peer_debug_dump();
 			if (cds_is_self_recovery_enabled())
-				cds_trigger_recovery();
+				cds_trigger_recovery(PEER_DEL_TIMEOUT);
 			else
 				QDF_ASSERT(0);
 			vdev->wait_on_peer_id = OL_TXRX_INVALID_LOCAL_PEER_ID;
@@ -2501,20 +2504,12 @@ ol_txrx_peer_attach(ol_txrx_vdev_handle vdev, uint8_t *peer_mac_addr)
 	qdf_atomic_init(&peer->flush_in_progress);
 
 	qdf_atomic_init(&peer->ref_cnt);
-
 	/* keep one reference for attach */
 	OL_TXRX_PEER_INC_REF_CNT(peer);
 
-	/*
-	 * Set a flag to indicate peer create is pending in firmware and
-	 * increment ref_cnt so that peer will not get deleted while
-	 * peer create command is pending in firmware.
-	 * First peer_map event from firmware signifies successful
-	 * peer creation and it will be decremented in peer_map handling.
-	 */
+	/* Set a flag to indicate peer create is pending in firmware */
 	qdf_atomic_init(&peer->fw_create_pending);
 	qdf_atomic_set(&peer->fw_create_pending, 1);
-	OL_TXRX_PEER_INC_REF_CNT(peer);
 
 	peer->valid = 1;
 	qdf_timer_init(pdev->osdev, &peer->peer_unmap_timer,
@@ -2563,6 +2558,7 @@ ol_txrx_peer_attach(ol_txrx_vdev_handle vdev, uint8_t *peer_mac_addr)
 
 	return peer;
 }
+#undef PEER_DEL_TIMEOUT
 
 /*
  * Discarding tx filter - removes all data frames (disconnected state)
@@ -3233,6 +3229,13 @@ int ol_txrx_peer_unref_delete(ol_txrx_peer_handle peer,
 			qdf_spin_unlock_bh(&pdev->peer_ref_mutex);
 		}
 
+		QDF_TRACE(QDF_MODULE_ID_TXRX, QDF_TRACE_LEVEL_INFO_HIGH,
+			   "[%s][%d]: Deleting peer %p (%pM) peer->ref_cnt = %d %s",
+			   fname, line, peer, peer->mac_addr.raw,
+			   qdf_atomic_read(&peer->ref_cnt),
+			   qdf_atomic_read(&peer->fw_create_pending) == 1 ?
+			   "(No Maps received)" : "");
+
 		ol_txrx_peer_tx_queue_free(pdev, peer);
 
 		/* Remove mappings from peer_id to peer object */
@@ -3353,6 +3356,9 @@ void peer_unmap_timer_handler(void *data)
 /**
  * ol_txrx_peer_detach() - Delete a peer's data object.
  * @peer - the object to detach
+ * @bool - Status whether PEER_DELETE is sent to fw
+ *         if value is false then we should not start peer unmap
+ *         timer.
  *
  * When the host's control SW disassociates a peer, it calls
  * this function to detach and delete the peer. The reference
@@ -3361,7 +3367,7 @@ void peer_unmap_timer_handler(void *data)
  *
  * Return: None
  */
-void ol_txrx_peer_detach(ol_txrx_peer_handle peer)
+void ol_txrx_peer_detach(ol_txrx_peer_handle peer, bool start_peer_unmap_timer)
 {
 	struct ol_txrx_vdev_t *vdev = peer->vdev;
 
@@ -3401,18 +3407,24 @@ void ol_txrx_peer_detach(ol_txrx_peer_handle peer)
 	 */
 	qdf_atomic_set(&peer->delete_in_progress, 1);
 
-	/*
-	 * Create a timer to track unmap events when the sta peer gets deleted.
-	 */
-	if (vdev->opmode == wlan_op_mode_sta) {
-		qdf_mem_copy(&peer->vdev->last_peer_mac_addr,
-			&peer->mac_addr,
-			sizeof(union ol_txrx_align_mac_addr_t));
-		qdf_timer_start(&peer->peer_unmap_timer,
-				OL_TXRX_PEER_UNMAP_TIMEOUT);
-		TXRX_PRINT(TXRX_PRINT_LEVEL_ERR,
-			   "%s: started peer_unmap_timer for peer %p",
-			   __func__, peer);
+	if (start_peer_unmap_timer) {
+		/*
+		 * Create a timer to track unmap events when the sta peer gets
+		 * deleted.
+		 */
+		if (vdev->opmode == wlan_op_mode_sta) {
+			qdf_mem_copy(&peer->vdev->last_peer_mac_addr,
+				     &peer->mac_addr,
+				     sizeof(union ol_txrx_align_mac_addr_t));
+			qdf_timer_start(&peer->peer_unmap_timer,
+					OL_TXRX_PEER_UNMAP_TIMEOUT);
+			TXRX_PRINT(TXRX_PRINT_LEVEL_ERR,
+				"%s: started peer_unmap_timer for peer %p",
+				__func__, peer);
+		}
+	} else {
+		WMA_LOGE("%s Peer unmap timer not started because PEER_DELETE not sent to firmware",
+			__func__);
 	}
 
 	/*
@@ -3444,7 +3456,7 @@ void ol_txrx_peer_detach_force_delete(ol_txrx_peer_handle peer)
 
 	/* Clear the peer_id_to_obj map entries */
 	ol_txrx_peer_remove_obj_map_entries(pdev, peer);
-	ol_txrx_peer_detach(peer);
+	ol_txrx_peer_detach(peer, true);
 }
 
 ol_txrx_peer_handle
@@ -5314,6 +5326,90 @@ void ol_deregister_lro_flush_cb(void (lro_deinit_cb)(void *))
 	pdev->lro_info.lro_flush_cb = NULL;
 }
 #endif /* FEATURE_LRO */
+
+/**
+ * ol_register_data_stall_detect_cb() - register data stall callback
+ * @data_stall_detect_callback: data stall callback function
+ *
+ *
+ * Return: QDF_STATUS Enumeration
+ */
+QDF_STATUS ol_register_data_stall_detect_cb(
+				data_stall_detect_cb data_stall_detect_callback)
+{
+	struct ol_txrx_pdev_t *pdev = cds_get_context(QDF_MODULE_ID_TXRX);
+
+	if (pdev == NULL) {
+		TXRX_PRINT(TXRX_PRINT_LEVEL_ERR, "%s: pdev NULL!", __func__);
+		return QDF_STATUS_E_INVAL;
+	}
+	pdev->data_stall_detect_callback = data_stall_detect_callback;
+	return QDF_STATUS_SUCCESS;
+}
+
+/**
+ * ol_deregister_data_stall_detect_cb() - de-register data stall callback
+ * @data_stall_detect_callback: data stall callback function
+ *
+ *
+ * Return: QDF_STATUS Enumeration
+ */
+QDF_STATUS ol_deregister_data_stall_detect_cb(
+				data_stall_detect_cb data_stall_detect_callback)
+{
+	struct ol_txrx_pdev_t *pdev = cds_get_context(QDF_MODULE_ID_TXRX);
+
+	if (pdev == NULL) {
+		TXRX_PRINT(TXRX_PRINT_LEVEL_ERR, "%s: pdev NULL!", __func__);
+		return QDF_STATUS_E_INVAL;
+	}
+	pdev->data_stall_detect_callback = NULL;
+	return QDF_STATUS_SUCCESS;
+}
+
+void ol_txrx_post_data_stall_event(
+				enum data_stall_log_event_indicator indicator,
+				enum data_stall_log_event_type data_stall_type,
+				uint32_t pdev_id, uint32_t vdev_id_bitmap,
+				enum data_stall_log_recovery_type recovery_type)
+{
+	cds_msg_t msg = { 0 };
+	QDF_STATUS status;
+	struct data_stall_event_info *data_stall_info;
+	ol_txrx_pdev_handle pdev;
+
+	pdev = cds_get_context(QDF_MODULE_ID_TXRX);
+	if (!pdev) {
+		QDF_TRACE(QDF_MODULE_ID_TXRX, QDF_TRACE_LEVEL_ERROR,
+			  "%s: pdev is NULL.", __func__);
+		return;
+	}
+	data_stall_info = qdf_mem_malloc(sizeof(*data_stall_info));
+	if (!data_stall_info) {
+		QDF_TRACE(QDF_MODULE_ID_TXRX, QDF_TRACE_LEVEL_ERROR,
+			  "%s: data_stall_info is NULL.", __func__);
+		return;
+	}
+	data_stall_info->indicator = indicator;
+	data_stall_info->data_stall_type = data_stall_type;
+	data_stall_info->vdev_id_bitmap = vdev_id_bitmap;
+	data_stall_info->pdev_id = pdev_id;
+	data_stall_info->recovery_type = recovery_type;
+
+	sys_build_message_header(SYS_MSG_ID_DATA_STALL_MSG, &msg);
+	/* Save callback and data */
+	msg.callback = pdev->data_stall_detect_callback;
+	msg.bodyptr = data_stall_info;
+	msg.bodyval = 0;
+
+	status = cds_mq_post_message(QDF_MODULE_ID_SYS, &msg);
+
+	if (status != QDF_STATUS_SUCCESS) {
+		QDF_TRACE(QDF_MODULE_ID_TXRX, QDF_TRACE_LEVEL_ERROR,
+			  "%s: failed to post data stall msg to SYS", __func__);
+		qdf_mem_free(data_stall_info);
+	}
+}
 
 void
 ol_txrx_dump_pkt(qdf_nbuf_t nbuf, uint32_t nbuf_paddr, int len)

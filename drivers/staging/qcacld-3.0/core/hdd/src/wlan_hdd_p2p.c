@@ -116,9 +116,12 @@ const char *tdls_action_frame_type[] = { "TDLS Setup Request",
 					 "TDLS Peer Traffic Response",
 					 "TDLS Discovery Request"};
 
-static bool wlan_hdd_is_type_p2p_action(const u8 *buf)
+static bool wlan_hdd_is_type_p2p_action(const u8 *buf, uint32_t len)
 {
 	const u8 *ouiPtr;
+
+	if (len < WLAN_HDD_PUBLIC_ACTION_FRAME_SUB_TYPE_OFFSET + 1)
+		return false;
 
 	if (buf[WLAN_HDD_PUBLIC_ACTION_FRAME_CATEGORY_OFFSET] !=
 	    WLAN_HDD_PUBLIC_ACTION_FRAME) {
@@ -144,11 +147,11 @@ static bool wlan_hdd_is_type_p2p_action(const u8 *buf)
 	return true;
 }
 
-static bool hdd_p2p_is_action_type_rsp(const u8 *buf)
+static bool hdd_p2p_is_action_type_rsp(const u8 *buf, uint32_t len)
 {
 	tActionFrmType actionFrmType;
 
-	if (wlan_hdd_is_type_p2p_action(buf)) {
+	if (wlan_hdd_is_type_p2p_action(buf, len)) {
 		actionFrmType =
 			buf[WLAN_HDD_PUBLIC_ACTION_FRAME_SUB_TYPE_OFFSET];
 		if (actionFrmType != WLAN_HDD_INVITATION_REQ
@@ -1251,8 +1254,8 @@ static int __wlan_hdd_mgmt_tx(struct wiphy *wiphy, struct wireless_dev *wdev,
 	hdd_remain_on_chan_ctx_t *pRemainChanCtx;
 	hdd_context_t *pHddCtx = WLAN_HDD_GET_CTX(pAdapter);
 	uint16_t extendedWait = 0;
-	uint8_t type = WLAN_HDD_GET_TYPE_FRM_FC(buf[0]);
-	uint8_t subType = WLAN_HDD_GET_SUBTYPE_FRM_FC(buf[0]);
+	uint8_t type;
+	uint8_t subType;
 	tActionFrmType actionFrmType;
 	bool noack = 0;
 	int status;
@@ -1260,8 +1263,17 @@ static int __wlan_hdd_mgmt_tx(struct wiphy *wiphy, struct wireless_dev *wdev,
 	hdd_adapter_t *goAdapter;
 	uint16_t current_freq;
 	uint8_t home_ch = 0;
+	uint32_t mgmt_hdr_len = sizeof(struct ieee80211_hdr_3addr);
 
 	ENTER();
+
+	if (len < mgmt_hdr_len + 1) {
+		hdd_err("Invalid Length");
+		return -EINVAL;
+	}
+
+	type = WLAN_HDD_GET_TYPE_FRM_FC(buf[0]);
+	subType = WLAN_HDD_GET_SUBTYPE_FRM_FC(buf[0]);
 
 	if (QDF_GLOBAL_FTM_MODE == hdd_get_conparam()) {
 		hdd_err("Command not allowed in FTM mode");
@@ -1281,19 +1293,24 @@ static int __wlan_hdd_mgmt_tx(struct wiphy *wiphy, struct wireless_dev *wdev,
 	if (0 != status)
 		return status;
 
-	hdd_notice("Device_mode %s(%d) type: %d, wait: %d, offchan: %d, category: %d, actionId: %d",
+	hdd_debug("Device_mode %s(%d) type: %d, wait: %d, offchan: %d",
 		   hdd_device_mode_to_string(pAdapter->device_mode),
-		   pAdapter->device_mode, type, wait, offchan,
-		   buf[WLAN_HDD_PUBLIC_ACTION_FRAME_BODY_OFFSET +
-		   WLAN_HDD_PUBLIC_ACTION_FRAME_CATEGORY_OFFSET],
-		   buf[WLAN_HDD_PUBLIC_ACTION_FRAME_BODY_OFFSET +
-		   WLAN_HDD_PUBLIC_ACTION_FRAME_ACTION_OFFSET]);
+		   pAdapter->device_mode, type, wait, offchan);
+
+	if (type == SIR_MAC_MGMT_FRAME && subType == SIR_MAC_MGMT_ACTION &&
+	    len > IEEE80211_MIN_ACTION_SIZE)
+		hdd_debug("category: %d, actionId: %d",
+			  buf[WLAN_HDD_PUBLIC_ACTION_FRAME_BODY_OFFSET +
+			  WLAN_HDD_PUBLIC_ACTION_FRAME_CATEGORY_OFFSET],
+			  buf[WLAN_HDD_PUBLIC_ACTION_FRAME_BODY_OFFSET +
+			  WLAN_HDD_PUBLIC_ACTION_FRAME_ACTION_OFFSET]);
 
 #ifdef WLAN_FEATURE_P2P_DEBUG
 	if ((type == SIR_MAC_MGMT_FRAME) &&
 	    (subType == SIR_MAC_MGMT_ACTION) &&
 	    wlan_hdd_is_type_p2p_action(&buf
-				[WLAN_HDD_PUBLIC_ACTION_FRAME_BODY_OFFSET])) {
+				[WLAN_HDD_PUBLIC_ACTION_FRAME_BODY_OFFSET],
+				len - mgmt_hdr_len)) {
 		actionFrmType = buf[WLAN_HDD_PUBLIC_ACTION_FRAME_TYPE_OFFSET];
 		if (actionFrmType >= MAX_P2P_ACTION_FRAME_TYPE) {
 			hdd_notice("[P2P] unknown[%d] ---> OTA to " MAC_ADDRESS_STR,
@@ -1435,7 +1452,8 @@ static int __wlan_hdd_mgmt_tx(struct wiphy *wiphy, struct wireless_dev *wdev,
 		if ((type == SIR_MAC_MGMT_FRAME) &&
 		    (subType == SIR_MAC_MGMT_ACTION) &&
 		    hdd_p2p_is_action_type_rsp(&buf
-					       [WLAN_HDD_PUBLIC_ACTION_FRAME_BODY_OFFSET])
+			[WLAN_HDD_PUBLIC_ACTION_FRAME_BODY_OFFSET],
+			len - mgmt_hdr_len)
 		    && cfgState->remain_on_chan_ctx
 		    && cfgState->current_freq == chan->center_freq) {
 			if (QDF_TIMER_STATE_RUNNING ==
@@ -1621,7 +1639,8 @@ send_frame:
 		if ((type == SIR_MAC_MGMT_FRAME) &&
 		    (subType == SIR_MAC_MGMT_ACTION) &&
 		     wlan_hdd_is_type_p2p_action(&buf
-				[WLAN_HDD_PUBLIC_ACTION_FRAME_BODY_OFFSET])) {
+				[WLAN_HDD_PUBLIC_ACTION_FRAME_BODY_OFFSET],
+				len - mgmt_hdr_len)) {
 			actionFrmType =
 				buf[WLAN_HDD_PUBLIC_ACTION_FRAME_TYPE_OFFSET];
 			hdd_notice("Tx Action Frame %u", actionFrmType);
