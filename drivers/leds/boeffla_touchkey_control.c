@@ -109,6 +109,26 @@ static int fb_notifier_callback(struct notifier_block *self,
 			cancel_delayed_work(&led_work);
 			break;
 
+		case FB_BLANK_POWERDOWN:
+		case FB_BLANK_HSYNC_SUSPEND:
+		case FB_BLANK_VSYNC_SUSPEND:
+		case FB_BLANK_NORMAL:
+			pr_debug("BTKC: screen on detected\n");
+
+			/*
+			 * only if in touchkey+display mode or touchkey_only
+			 * but with kernel controlled timeout, switch on LED
+			 * and schedule work to switch it off again
+			 */
+			if (btkc_mode == MODE_TOUCHKEY_DISP ||
+			    (btkc_mode == MODE_TOUCHKEY_ONLY && btkc_timeout)) {
+				qpnp_boeffla_set_button_backlight(LED_ON);
+
+				cancel_delayed_work(&led_work);
+				schedule_delayed_work(&led_work,
+					msecs_to_jiffies(btkc_timeout));
+			}
+
 		default:
 			break;
 		}
