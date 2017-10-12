@@ -22,6 +22,13 @@
 #include <linux/slab.h>
 #include <linux/workqueue.h>
 #include <linux/regulator/consumer.h>
+
+#ifdef CONFIG_BOEFFLA_TOUCH_KEY_CONTROL
+#include <linux/boeffla_touchkey_control.h>
+
+struct led_classdev *led_cdev_backlight_button = NULL;
+#endif
+
 struct gpio_led_data {
 	struct led_classdev cdev;
 	struct gpio_desc *gpiod;
@@ -56,6 +63,51 @@ static void gpio_led_set(struct led_classdev *led_cdev,
 		container_of(led_cdev, struct gpio_led_data, cdev);
 	int level;
 
+#ifdef CONFIG_BOEFFLA_TOUCH_KEY_CONTROL
+	if (strcmp(led_cdev->name, "button-backlight") == 0)
+	{
+		if (led_cdev_backlight_button == NULL)
+			led_cdev_backlight_button = led_cdev;
+
+		value = btkc_led_set(value);
+		if (value == -1)
+			return;
+	}
+#endif
+
+	if (value == LED_OFF)
+		level = 0;
+	else
+		level = 1;
+
+	/* Setting GPIOs with I2C/etc requires a task context, and we don't
+	 * seem to have a reliable way to know if we're already in one; so
+	 * let's just assume the worst.
+	 */
+	if (led_dat->can_sleep) {
+		led_dat->new_level = level;
+		schedule_work(&led_dat->work);
+	} else {
+		if (led_dat->blinking) {
+			led_dat->platform_gpio_blink_set(led_dat->gpiod, level,
+							 NULL, NULL);
+			led_dat->blinking = 0;
+		} else
+			gpiod_set_value(led_dat->gpiod, level);
+	}
+}
+
+#ifdef CONFIG_BOEFFLA_TOUCH_KEY_CONTROL
+void qpnp_boeffla_set_button_backlight(enum led_brightness value)
+{
+	struct gpio_led_data *led_dat;
+	int level;
+
+	if (led_cdev_backlight_button == NULL)
+		return;
+
+	led_dat = container_of(led_cdev_backlight_button, struct gpio_led_data, cdev);
+		
 	if (value == LED_OFF)
 		level = 0;
 	else
@@ -81,6 +133,7 @@ static void gpio_led_set(struct led_classdev *led_cdev,
 			gpiod_set_value(led_dat->gpiod, level);
 	}
 }
+#endif
 
 static int gpio_blink_set(struct led_classdev *led_cdev,
 	unsigned long *delay_on, unsigned long *delay_off)
