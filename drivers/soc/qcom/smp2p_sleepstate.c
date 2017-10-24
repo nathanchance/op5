@@ -18,10 +18,7 @@
 
 #define SET_DELAY (2 * HZ)
 #define PROC_AWAKE_ID 12 /* 12th bit */
-//qiuchangping@BSP 2016-05-19 
-//add for when sync filesystem take long time and AP hold sensor
-//sometime sensor data will block the sleep process alway
-int slst_gpio_base_id;
+static int slst_gpio_base_id;
 
 /**
  * sleepstate_pm_notifier() - PM notifier callback function.
@@ -37,30 +34,20 @@ static int sleepstate_pm_notifier(struct notifier_block *nb,
 {
 	switch (event) {
 	case PM_SUSPEND_PREPARE:
-        //qiuchangping@BSP 2016-05-19 
-        //add for when sync filesystem take long time and AP hold sensor
-        //sometime sensor data will block the sleep process alway
-		//gpio_set_value(slst_gpio_base_id + PROC_AWAKE_ID, 0);
-		//pr_err("xxxxxxx %s: PM_SUSPEND_PREPARE %d \n", __func__, slst_gpio_base_id + PROC_AWAKE_ID);
+		gpio_set_value(slst_gpio_base_id + PROC_AWAKE_ID, 0);
 		break;
 
 	case PM_POST_SUSPEND:
-        //qiuchangping@BSP 2016-05-19 
-        //add for when sync filesystem take long time and AP hold sensor
-        //sometime sensor data will block the sleep process alway
-		//gpio_set_value(slst_gpio_base_id + PROC_AWAKE_ID, 1);
-		//pr_err("xxxxxxx %s: PM_POST_SUSPEND %d \n", __func__, slst_gpio_base_id + PROC_AWAKE_ID);
+		gpio_set_value(slst_gpio_base_id + PROC_AWAKE_ID, 1);
 		break;
 	}
 	return NOTIFY_DONE;
 }
 
-
 static struct notifier_block sleepstate_pm_nb = {
 	.notifier_call = sleepstate_pm_notifier,
 	.priority = INT_MAX,
 };
-
 
 static int smp2p_sleepstate_probe(struct platform_device *pdev)
 {
