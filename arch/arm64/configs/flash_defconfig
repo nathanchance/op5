@@ -2,7 +2,6 @@
 # FLASH CONFIGURATION #
 #######################
 
-CONFIG_LOCALVERSION="-Flash-OP5"
 # CONFIG_CC_OPTIMIZE_FOR_SIZE is not set
 # CONFIG_MODULE_SIG is not set
 CONFIG_QCA_CLD_WLAN=m
