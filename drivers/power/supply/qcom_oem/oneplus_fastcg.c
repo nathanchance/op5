@@ -769,7 +769,6 @@ static void adapter_update_work_func(struct work_struct *work)
 		container_of(dwork,
 		struct fastchg_device_info, adapter_update_work);
 	bool update_result = false;
-	int i = 0;
 
 	if (!g_adapter_chip) {
 		pr_info("%s g_adapter_chip NULL\n", __func__);
