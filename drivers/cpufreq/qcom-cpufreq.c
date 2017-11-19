@@ -641,7 +641,7 @@ static int c0_cpufreq_qos_handler(struct notifier_block *b,
 	}
 
 	ret = get_c0_available_cpufreq();
-	if (!ret) {
+	if (ret) {
 		cpufreq_cpu_put(policy);
 		return NOTIFY_BAD;
 	}
