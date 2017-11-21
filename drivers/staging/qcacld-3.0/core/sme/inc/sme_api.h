@@ -65,6 +65,7 @@
 #define SME_SESSION_ID_ANY        50
 
 #define SME_INVALID_COUNTRY_CODE "XX"
+#define INVALID_ROAM_ID 0
 
 #define SME_SET_CHANNEL_REG_POWER(reg_info_1, val) do {	\
 	reg_info_1 &= 0xff00ffff;	      \
@@ -1590,5 +1591,14 @@ QDF_STATUS sme_set_smps_cfg(uint32_t vdev_id, uint32_t param_id,
  * Return: 0 on success, errno on failure
  */
 int sme_cli_set_command(int vdev_id, int param_id, int sval, int vpdev);
+
+/**
+ * sme_set_vc_mode_config() - Set voltage corner config to FW.
+ * @bitmap:	Bitmap that refers to voltage corner config with
+ * different phymode and bw configuration
+ *
+ * Return: QDF_STATUS
+ */
+QDF_STATUS sme_set_vc_mode_config(uint32_t vc_bitmap);
 
 #endif /* #if !defined( __SME_API_H ) */

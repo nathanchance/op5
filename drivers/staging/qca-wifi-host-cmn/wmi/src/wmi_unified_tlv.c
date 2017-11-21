@@ -3531,8 +3531,8 @@ QDF_STATUS send_set_sta_keep_alive_cmd_tlv(wmi_unified_t wmi_handle,
 		if ((NULL == params->hostv4addr) ||
 			(NULL == params->destv4addr) ||
 			(NULL == params->destmac)) {
-			WMI_LOGE("%s: received null pointer, hostv4addr:%p "
-			   "destv4addr:%p destmac:%p ", __func__,
+			WMI_LOGE("%s: received null pointer, hostv4addr:%pK "
+			   "destv4addr:%pK destmac:%pK ", __func__,
 			   params->hostv4addr, params->destv4addr, params->destmac);
 			wmi_buf_free(buf);
 			return QDF_STATUS_E_FAILURE;
@@ -9934,8 +9934,8 @@ QDF_STATUS send_set_base_macaddr_indicate_cmd_tlv(wmi_unified_t wmi_handle,
  * Return: 0 on successfully enabling/disabling the events
  */
 QDF_STATUS send_log_supported_evt_cmd_tlv(wmi_unified_t wmi_handle,
-		uint8_t *event,
-		uint32_t len)
+					  uint8_t *event,
+					  uint32_t len)
 {
 	uint32_t num_of_diag_events_logs;
 	wmi_diag_event_log_config_fixed_param *cmd;
@@ -9956,6 +9956,15 @@ QDF_STATUS send_log_supported_evt_cmd_tlv(wmi_unified_t wmi_handle,
 	}
 	wmi_event = param_buf->fixed_param;
 	num_of_diag_events_logs = wmi_event->num_of_diag_events_logs;
+
+	if (num_of_diag_events_logs >
+	    param_buf->num_diag_events_logs_list) {
+		WMI_LOGE("message number of events %d is more than tlv hdr content %d",
+			 num_of_diag_events_logs,
+			 param_buf->num_diag_events_logs_list);
+		return QDF_STATUS_E_INVAL;
+	}
+
 	evt_args = param_buf->diag_events_logs_list;
 	if (!evt_args) {
 		WMI_LOGE("%s: Event list is empty, num_of_diag_events_logs=%d",

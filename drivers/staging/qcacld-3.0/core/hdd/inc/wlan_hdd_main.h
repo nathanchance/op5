@@ -1575,7 +1575,7 @@ struct hdd_context_s {
 	/* defining the chip/rom revision */
 	uint32_t target_hw_revision;
 	/* chip/rom name */
-	const char *target_hw_name;
+	char *target_hw_name;
 	struct regulatory reg;
 #ifdef FEATURE_WLAN_CH_AVOID
 	uint16_t unsafe_channel_count;
@@ -1803,6 +1803,17 @@ QDF_STATUS hdd_set_ibss_power_save_params(hdd_adapter_t *pAdapter);
 QDF_STATUS wlan_hdd_restart_driver(hdd_context_t *pHddCtx);
 void hdd_exchange_version_and_caps(hdd_context_t *pHddCtx);
 int wlan_hdd_validate_context(hdd_context_t *pHddCtx);
+
+/**
+ * hdd_validate_adapter() - Validate the given adapter
+ * @adapter: the adapter to validate
+ *
+ * This function validates the given adapter, and ensures that it is open.
+ *
+ * Return: Errno
+ */
+int hdd_validate_adapter(hdd_adapter_t *adapter);
+
 bool hdd_is_valid_mac_address(const uint8_t *pMacAddr);
 QDF_STATUS hdd_issta_p2p_clientconnected(hdd_context_t *pHddCtx);
 bool wlan_hdd_modules_are_enabled(hdd_context_t *hdd_ctx);

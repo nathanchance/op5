@@ -271,10 +271,6 @@ void lim_process_mlm_reassoc_cnf(tpAniSirGlobal mac_ctx, uint32_t *msg_buf)
 			GET_LIM_SYSTEM_ROLE(session), session->limSmeState);
 		return;
 	}
-	if (session->pLimReAssocReq) {
-		qdf_mem_free(session->pLimReAssocReq);
-		session->pLimReAssocReq = NULL;
-	}
 
 	/*
 	 * Upon Reassoc success or failure, freeup the cached preauth request,
@@ -346,6 +342,11 @@ void lim_process_mlm_reassoc_cnf(tpAniSirGlobal mac_ctx, uint32_t *msg_buf)
 					lim_mlm_reassoc_cnf->resultCode,
 					lim_mlm_reassoc_cnf->protStatusCode,
 					session);
+	}
+
+	if (session->pLimReAssocReq) {
+		qdf_mem_free(session->pLimReAssocReq);
+		session->pLimReAssocReq = NULL;
 	}
 }
 

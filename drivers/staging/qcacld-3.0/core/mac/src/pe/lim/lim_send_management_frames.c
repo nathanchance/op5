@@ -2284,9 +2284,10 @@ lim_send_auth_mgmt_frame(tpAniSirGlobal mac_ctx,
 			 * for challenge text.
 			 */
 
-			frame_len = sizeof(tSirMacMgmtHdr) +
-				   sizeof(tSirMacAuthFrame);
-			body_len = sizeof(tSirMacAuthFrameBody);
+			body_len = SIR_MAC_AUTH_FRAME_INFO_LEN +
+				   SIR_MAC_SAP_AUTH_CHALLENGE_LENGTH +
+				   SIR_MAC_CHALLENGE_ID_LEN;
+			frame_len = sizeof(tSirMacMgmtHdr) + body_len;
 		}
 		break;
 
