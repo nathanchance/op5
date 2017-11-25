@@ -240,29 +240,32 @@ static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 
 	pr_debug("%s: level=%d\n", __func__, level);
 
-    if (ctrl->bklt_max > 255){
-        u8 ldata = 0;
-        u8 hdata = 0;
+	if (ctrl->bklt_max > 255) {
+		u8 ldata = 0;
+		u8 hdata = 0;
 
-        if (ctrl->bl_high2bit){
-            ldata = level & 0x0ff;
-            hdata = (level >> 8) & 0x03;
-            led_pwm2[2] = ldata;
-            led_pwm2[1] = hdata;
-        } else{
-            ldata = level & 0x03;
-            hdata = (level >> 2) & 0x0ff;
-            led_pwm2[2] = ldata;
-            led_pwm2[1] = hdata;
-        }
-    } else
-	led_pwm1[1] = (unsigned char)level;
+		if (ctrl->bl_high2bit) {
+			ldata = level & 0x0ff;
+			hdata = (level >> 8) & 0x03;
+			led_pwm2[2] = ldata;
+			led_pwm2[1] = hdata;
+		} else {
+			ldata = level & 0x03;
+			hdata = (level >> 2) & 0x0ff;
+			led_pwm2[2] = ldata;
+			led_pwm2[1] = hdata;
+		}
+	} else {
+		led_pwm1[1] = (unsigned char)level;
+	}
 
 	memset(&cmdreq, 0, sizeof(cmdreq));
-    if (ctrl->bklt_max > 255){
-        cmdreq.cmds = &backlight_cmd2;
-    } else
-	cmdreq.cmds = &backlight_cmd;
+
+	if (ctrl->bklt_max > 255)
+		cmdreq.cmds = &backlight_cmd2;
+	else
+		cmdreq.cmds = &backlight_cmd;
+
 	cmdreq.cmds_cnt = 1;
 	cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL;
 	cmdreq.rlen = 0;
@@ -1632,16 +1635,19 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 		if (ctrl->ndx != DSI_CTRL_LEFT)
 			goto end;
 	}
-    mutex_lock(&ctrl->panel_mode_lock);
-    ctrl->is_panel_on = false;
-    mutex_unlock(&ctrl->panel_mode_lock);
 
-    if (ctrl->iris_enabled){
-        iris_lightoff(ctrl);
-        iris_panel_cmds(ctrl, &ctrl->off_cmds);
-    } else
-	if (ctrl->off_cmds.cmd_cnt)
-		mdss_dsi_panel_cmds_send(ctrl, &ctrl->off_cmds, CMD_REQ_COMMIT);
+	mutex_lock(&ctrl->panel_mode_lock);
+	ctrl->is_panel_on = false;
+	mutex_unlock(&ctrl->panel_mode_lock);
+
+	if (ctrl->iris_enabled){
+		iris_lightoff(ctrl);
+		iris_panel_cmds(ctrl, &ctrl->off_cmds);
+
+	} else {
+		if (ctrl->off_cmds.cmd_cnt)
+			mdss_dsi_panel_cmds_send(ctrl, &ctrl->off_cmds, CMD_REQ_COMMIT);
+	}
 
 	if (ctrl->ds_registered && pinfo->is_pluggable) {
 		mdss_dba_utils_video_off(pinfo->dba_data);
