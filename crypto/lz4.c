@@ -48,6 +48,8 @@ static void lz4_exit(struct crypto_tfm *tfm)
 static int lz4_compress_crypto(struct crypto_tfm *tfm, const u8 *src,
 			    unsigned int slen, u8 *dst, unsigned int *dlen)
 {
+	struct lz4_ctx *ctx = crypto_tfm_ctx(tfm);
+
 	int out_len = LZ4_compress_default(src, dst,
 		slen, *dlen, ctx);
 
