@@ -32,6 +32,7 @@ endif
 
 ifeq ($(cc-name),clang)
 KBUILD_CFLAGS	+= -mno-implicit-float
+KBUILD_CFLAGS	+= -DCONFIG_ARCH_SUPPORTS_INT128
 else
 KBUILD_CFLAGS	+= -mgeneral-regs-only
 endif
