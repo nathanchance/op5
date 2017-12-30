@@ -8,4 +8,10 @@ config SRCARCH
 	string
 	option env="SRCARCH"
 
+config CUSTOM_ROM
+	bool "Custom ROM support"
+	default n
+	help
+	  Enable this for custom ROM specific features/hacks
+
 source "arch/$SRCARCH/Kconfig"
