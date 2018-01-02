@@ -1042,7 +1042,7 @@ static void csr_neighbor_roam_info_ctx_init(
 			}
 		} else
 #endif
-
+		{
 			csr_roam_offload_scan(pMac, session_id,
 				ROAM_SCAN_OFFLOAD_START,
 				REASON_CTX_INIT);
@@ -1055,7 +1055,7 @@ static void csr_neighbor_roam_info_ctx_init(
 					ROAM_SCAN_OFFLOAD_STOP,
 					REASON_SUPPLICANT_DISABLED_ROAMING);
 			}
-
+		}
 	}
 }
 
