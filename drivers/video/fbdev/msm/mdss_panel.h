@@ -338,7 +338,9 @@ enum mdss_intf_events {
 	MDSS_EVENT_AVR_MODE,
 	MDSS_EVENT_REGISTER_CLAMP_HANDLER,
 	MDSS_EVENT_MAX,
+#ifdef CONFIG_LIVE_DISPLAY
 	MDSS_EVENT_UPDATE_LIVEDISPLAY,
+#endif
 };
 
 /**
@@ -789,7 +791,9 @@ struct mdss_dsi_dual_pu_roi {
 	bool enabled;
 };
 
+#ifdef CONFIG_LIVE_DISPLAY
 struct mdss_livedisplay_ctx;
+#endif
 
 struct mdss_panel_hdr_properties {
 	bool hdr_enabled;
@@ -946,7 +950,9 @@ struct mdss_panel_info {
 	 */
 	u32 adjust_timer_delay_ms;
 
+#ifdef CONFIG_LIVE_DISPLAY
 	struct mdss_livedisplay_ctx *livedisplay;
+#endif
 
 	/* debugfs structure for the panel */
 	struct mdss_panel_debugfs_info *debugfs_info;

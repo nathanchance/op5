@@ -26,7 +26,9 @@
 #include "mdss_dsi.h"
 #include "mdss_dba_utils.h"
 #include "mdss_debug.h"
+#ifdef CONFIG_LIVE_DISPLAY
 #include "mdss_livedisplay.h"
+#endif
 
 #include <linux/clk.h>
 #include "mdss_dsi_iris2p_lightup.h"
@@ -187,6 +189,9 @@ static void mdss_dsi_panel_apply_settings(struct mdss_dsi_ctrl_pdata *ctrl,
 }
 
 
+#ifndef CONFIG_LIVE_DISPLAY
+static
+#endif
 void mdss_dsi_panel_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,
 			struct dsi_panel_cmds *pcmds, u32 flags)
 {
@@ -1564,9 +1569,11 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 	if (ctrl->ds_registered)
 		mdss_dba_utils_video_on(pinfo->dba_data, pinfo);
 
+#ifdef CONFIG_LIVE_DISPLAY
 	if (pdata->event_handler)
 		pdata->event_handler(pdata, MDSS_EVENT_UPDATE_LIVEDISPLAY,
 				(void *)(unsigned long) MODE_UPDATE_ALL);
+#endif
 
 	/* Ensure low persistence mode is set as before */
 	mdss_dsi_panel_apply_display_setting(pdata, pinfo->persist_mode);
@@ -1752,6 +1759,9 @@ static void mdss_dsi_parse_trigger(struct device_node *np, char *trigger,
 }
 
 
+#ifndef CONFIG_LIVE_DISPLAY
+static
+#endif
 int mdss_dsi_parse_dcs_cmds(struct device_node *np,
 		struct dsi_panel_cmds *pcmds, char *cmd_key, char *link_key)
 {
@@ -3665,7 +3675,9 @@ static int mdss_panel_parse_dt(struct device_node *np,
 		pinfo->esc_clk_rate_hz = MDSS_DSI_MAX_ESC_CLK_RATE_HZ;
 	pr_debug("%s: esc clk %d\n", __func__, pinfo->esc_clk_rate_hz);
 
+#ifdef CONFIG_LIVE_DISPLAY
 	mdss_livedisplay_parse_dt(np, pinfo);
+#endif
 
 	return 0;
 
