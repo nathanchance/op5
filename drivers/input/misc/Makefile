@@ -79,6 +79,10 @@ obj-$(CONFIG_INPUT_WM831X_ON)		+= wm831x-on.o
 obj-$(CONFIG_INPUT_XEN_KBDDEV_FRONTEND)	+= xen-kbdfront.o
 obj-$(CONFIG_INPUT_YEALINK)		+= yealink.o
 obj-$(CONFIG_INPUT_IDEAPAD_SLIDEBAR)	+= ideapad_slidebar.o
+ifeq ($(CONFIG_CUSTOM_ROM),y)
+obj-$(CONFIG_TRI_STATE_KEY)        += tri_state_key_custom.o
+else
 obj-$(CONFIG_TRI_STATE_KEY)        += tri_state_key.o
+endif
 obj-$(CONFIG_INPUT_PIXART_OTS_PAT9125_SWITCH)	+= ots_pat9125/
 obj-$(CONFIG_INPUT_STMVL53L0)                 += vl53L0/
