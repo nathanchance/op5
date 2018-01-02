@@ -34,7 +34,9 @@
 #include "mdss_debug.h"
 #include "mdss_dsi_phy.h"
 #include "mdss_dba_utils.h"
+#ifdef CONFIG_LIVE_DISPLAY
 #include "mdss_livedisplay.h"
+#endif
 
 #define CMDLINE_DSI_CTL_NUM_STRING_LEN 2
 
@@ -2981,9 +2983,11 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 	case MDSS_EVENT_AVR_MODE:
 		mdss_dsi_avr_config(ctrl_pdata, (int)(unsigned long) arg);
 		break;
+#ifdef CONFIG_LIVE_DISPLAY
 	case MDSS_EVENT_UPDATE_LIVEDISPLAY:
 		rc = mdss_livedisplay_update(ctrl_pdata, (int)(unsigned long) arg);
 		break;
+#endif
 	default:
 		pr_debug("%s: unhandled event=%d\n", __func__, event);
 		break;
