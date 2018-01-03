@@ -7164,6 +7164,8 @@ static int msm_init_wsa_dev(struct platform_device *pdev,
 	int found = 0;
 	int ret = 0;
 
+	return ret;
+
 	/* Get maximum WSA device count for this platform */
 	ret = of_property_read_u32(pdev->dev.of_node,
 				   "qcom,wsa-max-devs", &wsa_max_devs);
