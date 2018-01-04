@@ -16,9 +16,6 @@
 #define NULL_SECNO			((unsigned int)(~0))
 
 #define DEF_RECLAIM_PREFREE_SEGMENTS	5	/* 5% over total segments */
-#define DEF_MAX_RECLAIM_PREFREE_SEGMENTS	4096	/* 8GB in maximum */
-
-#define F2FS_MIN_SEGMENTS	9 /* SB + 2 (CP + SIT + NAT) + SSA + MAIN */
 
 /* L: Logical segment # in volume, R: Relative segment # in main area */
 #define GET_L2R_SEGNO(free_i, segno)	(segno - free_i->start_segno)
@@ -104,6 +101,8 @@
 	(((sector_t)blk_addr) << F2FS_LOG_SECTORS_PER_BLOCK)
 #define SECTOR_TO_BLOCK(sectors)					\
 	(sectors >> F2FS_LOG_SECTORS_PER_BLOCK)
+#define MAX_BIO_BLOCKS(sbi)						\
+	((int)min((int)max_hw_blocks(sbi), BIO_MAX_PAGES))
 
 /*
  * indicate a block allocation direction: RIGHT and LEFT.
@@ -159,17 +158,16 @@ struct victim_sel_policy {
 };
 
 struct seg_entry {
-	unsigned int type:6;		/* segment type like CURSEG_XXX_TYPE */
-	unsigned int valid_blocks:10;	/* # of valid blocks */
-	unsigned int ckpt_valid_blocks:10;	/* # of valid blocks last cp */
-	unsigned int padding:6;		/* padding */
+	unsigned short valid_blocks;	/* # of valid blocks */
 	unsigned char *cur_valid_map;	/* validity bitmap of blocks */
 	/*
 	 * # of valid blocks and the validity bitmap stored in the the last
 	 * checkpoint pack. This information is used by the SSR mode.
 	 */
-	unsigned char *ckpt_valid_map;	/* validity bitmap of blocks last cp */
+	unsigned short ckpt_valid_blocks;
+	unsigned char *ckpt_valid_map;
 	unsigned char *discard_map;
+	unsigned char type;		/* segment type like CURSEG_XXX_TYPE */
 	unsigned long long mtime;	/* modification time of the segment */
 };
 
@@ -185,7 +183,7 @@ struct segment_allocation {
  * this value is set in page as a private data which indicate that
  * the page is atomically written, and it is in inmem_pages list.
  */
-#define ATOMIC_WRITTEN_PAGE		((unsigned long)-1)
+#define ATOMIC_WRITTEN_PAGE		0x0000ffff
 
 #define IS_ATOMIC_WRITTEN_PAGE(page)			\
 		(page_private(page) == (unsigned long)ATOMIC_WRITTEN_PAGE)
@@ -193,7 +191,6 @@ struct segment_allocation {
 struct inmem_pages {
 	struct list_head list;
 	struct page *page;
-	block_t old_addr;		/* for revoking when fail to commit */
 };
 
 struct sit_info {
@@ -260,8 +257,6 @@ struct victim_selection {
 struct curseg_info {
 	struct mutex curseg_mutex;		/* lock for consistency */
 	struct f2fs_summary_block *sum_blk;	/* cached summary block */
-	struct rw_semaphore journal_rwsem;	/* protect journal area */
-	struct f2fs_journal *journal;		/* cached journal info */
 	unsigned char alloc_type;		/* current allocation type */
 	unsigned int segno;			/* current segment number */
 	unsigned short next_blkoff;		/* next block offset to write */
@@ -471,28 +466,20 @@ static inline bool need_SSR(struct f2fs_sb_info *sbi)
 {
 	int node_secs = get_blocktype_secs(sbi, F2FS_DIRTY_NODES);
 	int dent_secs = get_blocktype_secs(sbi, F2FS_DIRTY_DENTS);
-	int imeta_secs = get_blocktype_secs(sbi, F2FS_DIRTY_IMETA);
-
-	if (test_opt(sbi, LFS))
-		return false;
-
-	return free_sections(sbi) <= (node_secs + 2 * dent_secs + imeta_secs +
+	return free_sections(sbi) <= (node_secs + 2 * dent_secs +
 						reserved_sections(sbi) + 1);
 }
 
-static inline bool has_not_enough_free_secs(struct f2fs_sb_info *sbi,
-					int freed, int needed)
+static inline bool has_not_enough_free_secs(struct f2fs_sb_info *sbi, int freed)
 {
 	int node_secs = get_blocktype_secs(sbi, F2FS_DIRTY_NODES);
 	int dent_secs = get_blocktype_secs(sbi, F2FS_DIRTY_DENTS);
-	int imeta_secs = get_blocktype_secs(sbi, F2FS_DIRTY_IMETA);
 
 	if (unlikely(is_sbi_flag_set(sbi, SBI_POR_DOING)))
 		return false;
 
-	return (free_sections(sbi) + freed) <=
-		(node_secs + 2 * dent_secs + imeta_secs +
-		reserved_sections(sbi) + needed);
+	return (free_sections(sbi) + freed) <= (node_secs + 2 * dent_secs +
+						reserved_sections(sbi));
 }
 
 static inline bool excess_prefree_segs(struct f2fs_sb_info *sbi)
@@ -540,9 +527,6 @@ static inline bool need_inplace_update(struct inode *inode)
 	if (S_ISDIR(inode->i_mode) || f2fs_is_atomic_file(inode))
 		return false;
 
-	if (test_opt(sbi, LFS))
-		return false;
-
 	if (policy & (0x1 << F2FS_IPU_FORCE))
 		return true;
 	if (policy & (0x1 << F2FS_IPU_SSR) && need_SSR(sbi))
@@ -556,7 +540,7 @@ static inline bool need_inplace_update(struct inode *inode)
 
 	/* this is only set during fdatasync */
 	if (policy & (0x1 << F2FS_IPU_FSYNC) &&
-			is_inode_flag_set(inode, FI_NEED_IPU))
+			is_inode_flag_set(F2FS_I(inode), FI_NEED_IPU))
 		return true;
 
 	return false;
@@ -589,8 +573,8 @@ static inline void check_seg_range(struct f2fs_sb_info *sbi, unsigned int segno)
 
 static inline void verify_block_addr(struct f2fs_sb_info *sbi, block_t blk_addr)
 {
-	WARN_ON(blk_addr < SEG0_BLKADDR(sbi)
-			|| blk_addr >= MAX_BLKADDR(sbi));
+	f2fs_bug_on(sbi, blk_addr < SEG0_BLKADDR(sbi)
+					|| blk_addr >= MAX_BLKADDR(sbi));
 }
 
 /*
@@ -696,6 +680,13 @@ static inline bool sec_usage_check(struct f2fs_sb_info *sbi, unsigned int secno)
 	return false;
 }
 
+static inline unsigned int max_hw_blocks(struct f2fs_sb_info *sbi)
+{
+	struct block_device *bdev = sbi->sb->s_bdev;
+	struct request_queue *q = bdev_get_queue(bdev);
+	return SECTOR_TO_BLOCK(queue_max_sectors(q));
+}
+
 /*
  * It is very important to gather dirty pages and write at once, so that we can
  * submit a big bio without interfering other data writes.
@@ -711,9 +702,9 @@ static inline int nr_pages_to_skip(struct f2fs_sb_info *sbi, int type)
 	if (type == DATA)
 		return sbi->blocks_per_seg;
 	else if (type == NODE)
-		return 8 * sbi->blocks_per_seg;
+		return 3 * sbi->blocks_per_seg;
 	else if (type == META)
-		return 8 * BIO_MAX_PAGES;
+		return MAX_BIO_BLOCKS(sbi);
 	else
 		return 0;
 }
@@ -730,9 +721,13 @@ static inline long nr_pages_to_write(struct f2fs_sb_info *sbi, int type,
 		return 0;
 
 	nr_to_write = wbc->nr_to_write;
-	desired = BIO_MAX_PAGES;
-	if (type == NODE)
-		desired <<= 1;
+
+	if (type == DATA)
+		desired = 4096;
+	else if (type == NODE)
+		desired = 3 * max_hw_blocks(sbi);
+	else
+		desired = MAX_BIO_BLOCKS(sbi);
 
 	wbc->nr_to_write = desired;
 	return desired - nr_to_write;
