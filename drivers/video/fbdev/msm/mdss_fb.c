@@ -845,6 +845,7 @@ static ssize_t mdss_fb_get_dfps_mode(struct device *dev,
 	return ret;
 }
 
+#ifndef CONFIG_LIVE_DISPLAY
 static ssize_t mdss_fb_get_ACL(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -1057,7 +1058,7 @@ static ssize_t mdss_fb_set_dci_p3_mode(struct device *dev,
 
 static DEVICE_ATTR(DCI_P3, S_IRUGO | S_IWUSR,
 	mdss_fb_get_dci_p3_mode, mdss_fb_set_dci_p3_mode);
-//#endif
+#endif
 
 static ssize_t mdss_fb_get_panel_serial_number(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -1095,6 +1096,7 @@ static DEVICE_ATTR(panel_serial_number, S_IRUGO | S_IWUSR,
 	mdss_fb_get_panel_serial_number, NULL);
 //#endif
 
+#ifndef CONFIG_LIVE_DISPLAY
 static ssize_t mdss_fb_get_night_mode(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -1218,7 +1220,7 @@ static ssize_t mdss_fb_set_adaption_mode(struct device *dev,
 static DEVICE_ATTR(adaption_mode, S_IRUGO | S_IWUSR,
 	mdss_fb_get_adaption_mode, mdss_fb_set_adaption_mode);
 
-//#endif
+#endif
 static ssize_t mdss_fb_change_persist_mode(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t len)
 {
@@ -1327,6 +1329,7 @@ static struct attribute *mdss_fb_attrs[] = {
 	&dev_attr_msm_fb_panel_status.attr,
 	&dev_attr_msm_fb_dfps_mode.attr,
 	&dev_attr_measured_fps.attr,
+#ifndef CONFIG_LIVE_DISPLAY
 	&dev_attr_acl.attr,
 //#endif
 	&dev_attr_hbm.attr,
@@ -1340,7 +1343,7 @@ static struct attribute *mdss_fb_attrs[] = {
 	&dev_attr_night_mode.attr,
 	&dev_attr_adaption_mode.attr,
 	&dev_attr_oneplus_mode.attr,
-//#endif
+#endif
 	&dev_attr_panel_serial_number.attr,
 //#endif
 	&dev_attr_msm_fb_persist_mode.attr,

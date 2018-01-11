@@ -1132,6 +1132,7 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 	}
 }
 
+#ifndef CONFIG_LIVE_DISPLAY
 int mdss_dsi_panel_set_acl(struct mdss_dsi_ctrl_pdata *ctrl, int mode)
 {
 	struct dsi_panel_cmds *acl_cmds;
@@ -1488,8 +1489,8 @@ int mdss_dsi_panel_get_adaption_mode(struct mdss_dsi_ctrl_pdata *ctrl)
 {
    return ctrl->adaption_mode;
 }
+#endif
 
-//#endif
 static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
@@ -1532,6 +1533,7 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
     ctrl->is_panel_on = true;
     mutex_unlock(&ctrl->panel_mode_lock);
 
+#ifndef CONFIG_LIVE_DISPLAY
 	if (mdss_dsi_panel_get_acl_mode(ctrl)){
 		mdss_dsi_panel_set_acl(ctrl,
 		    mdss_dsi_panel_get_acl_mode(ctrl));
@@ -1562,6 +1564,7 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 		mdss_dsi_panel_set_adaption_mode(ctrl,
 		    mdss_dsi_panel_get_adaption_mode(ctrl));
 	}
+#endif
 
 	if (pinfo->compression_mode == COMPRESSION_DSC)
 		mdss_dsi_panel_dsc_pps_send(ctrl, pinfo);

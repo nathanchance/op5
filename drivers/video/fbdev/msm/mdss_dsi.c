@@ -2898,6 +2898,7 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 					&ctrl_pdata->dba_work, HZ);
 		}
 		break;
+#ifndef CONFIG_LIVE_DISPLAY
 	case MDSS_EVENT_PANEL_SET_ACL:
 		ctrl_pdata->acl_mode = (int)(unsigned long) arg;
 		mdss_dsi_panel_set_acl(ctrl_pdata,
@@ -2976,7 +2977,7 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 	case MDSS_EVENT_PANEL_GET_ADAPTION_MODE:
 		rc = mdss_dsi_panel_get_adaption_mode(ctrl_pdata);
 		break;
-	//#endif
+#endif
 	case MDSS_EVENT_DSI_TIMING_DB_CTRL:
 		mdss_dsi_timing_db_ctrl(ctrl_pdata, (int)(unsigned long)arg);
 		break;
