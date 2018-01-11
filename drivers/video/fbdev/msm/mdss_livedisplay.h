@@ -41,6 +41,11 @@ struct mdss_livedisplay_ctx {
 	unsigned int hbm_off_cmds_len;
 	unsigned int hbm_on_cmds_len;
 
+	const uint8_t *night_mode_off_cmds;
+	const uint8_t *night_mode_on_cmds;
+	unsigned int night_mode_off_cmds_len;
+	unsigned int night_mode_on_cmds_len;
+
 	const uint8_t *srgb_off_cmds;
 	const uint8_t *srgb_on_cmds;
 	unsigned int srgb_off_cmds_len;
@@ -66,6 +71,7 @@ struct mdss_livedisplay_ctx {
 	bool aco_enabled;
 	bool ce_enabled;
 	bool hbm_enabled;
+	bool night_mode_enabled;
 	bool srgb_enabled;
 	bool dci_p3_enabled;
 
@@ -96,15 +102,16 @@ enum {
 };
 
 enum {
-	MODE_CABC		= 0x01,
-	MODE_SRE		= 0x02,
-	MODE_AUTO_CONTRAST	= 0x04,
-	MODE_COLOR_ENHANCE	= 0x08,
-	MODE_PRESET		= 0x10,
-	MODE_HIGH_BRIGHTNESS	= 0x20,
-	MODE_SRGB		= 0x40,
-	MODE_DCI_P3		= 0x80,
-	MODE_UPDATE_ALL		= 0xFF,
+	MODE_CABC		= 0x001,
+	MODE_SRE		= 0x002,
+	MODE_AUTO_CONTRAST	= 0x004,
+	MODE_COLOR_ENHANCE	= 0x008,
+	MODE_PRESET		= 0x010,
+	MODE_HIGH_BRIGHTNESS	= 0x020,
+	MODE_NIGHT		= 0x040,
+	MODE_SRGB		= 0x080,
+	MODE_DCI_P3		= 0x100,
+	MODE_UPDATE_ALL		= 0x0FF,
 };
 
 int mdss_livedisplay_update(struct mdss_dsi_ctrl_pdata *ctrl_pdata, int types);

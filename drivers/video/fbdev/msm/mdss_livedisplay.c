@@ -161,6 +161,9 @@ int mdss_livedisplay_update(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 	if ((mlc->caps & MODE_HIGH_BRIGHTNESS) && (types & MODE_HIGH_BRIGHTNESS))
 		len += mlc->hbm_enabled ? mlc->hbm_on_cmds_len : mlc->hbm_off_cmds_len;
 
+	if ((mlc->caps & MODE_NIGHT) && (types & MODE_NIGHT))
+		len += mlc->night_mode_enabled ? mlc->night_mode_on_cmds_len : mlc->night_mode_off_cmds_len;
+
 	if ((mlc->caps & MODE_SRGB) && (types & MODE_SRGB)) {
 		if (mlc->srgb_enabled)
 			len += mlc->srgb_on_cmds_len;
@@ -239,6 +242,17 @@ int mdss_livedisplay_update(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 		} else {
 			memcpy(cmd_buf + dlen, mlc->hbm_off_cmds, mlc->hbm_off_cmds_len);
 			dlen += mlc->hbm_off_cmds_len;
+		}
+	}
+
+	// Night mode
+	if ((mlc->caps & MODE_NIGHT) && (types & MODE_NIGHT)) {
+		if (mlc->night_mode_enabled) {
+			memcpy(cmd_buf + dlen, mlc->night_mode_on_cmds, mlc->night_mode_on_cmds_len);
+			dlen += mlc->night_mode_on_cmds_len;
+		} else {
+			memcpy(cmd_buf + dlen, mlc->night_mode_off_cmds, mlc->night_mode_off_cmds_len);
+			dlen += mlc->night_mode_off_cmds_len;
 		}
 	}
 
@@ -367,6 +381,35 @@ static ssize_t mdss_livedisplay_set_sre(struct device *dev,
 				level != mlc->sre_level) {
 		mlc->sre_level = level;
 		mdss_livedisplay_event(mfd, MODE_SRE);
+	}
+
+	return count;
+}
+
+static ssize_t mdss_livedisplay_get_night_mode(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	struct mdss_livedisplay_ctx *mlc = get_ctx(mfd);
+
+	return sprintf(buf, "%d\n", mlc->night_mode_enabled);
+}
+
+static ssize_t mdss_livedisplay_set_night_mode(struct device *dev,
+							   struct device_attribute *attr,
+							   const char *buf, size_t count)
+{
+	int value = 0;
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	struct mdss_livedisplay_ctx *mlc = get_ctx(mfd);
+
+	sscanf(buf, "%du", &value);
+	if ((value == 0 || value == 1)
+			&& value != mlc->night_mode_enabled) {
+		mlc->night_mode_enabled = value;
+		mdss_livedisplay_event(mfd, MODE_NIGHT);
 	}
 
 	return count;
@@ -562,6 +605,7 @@ static DEVICE_ATTR(aco, S_IRUGO | S_IWUSR | S_IWGRP, mdss_livedisplay_get_aco, m
 static DEVICE_ATTR(preset, S_IRUGO | S_IWUSR | S_IWGRP, mdss_livedisplay_get_preset, mdss_livedisplay_set_preset);
 static DEVICE_ATTR(num_presets, S_IRUGO, mdss_livedisplay_get_num_presets, NULL);
 static DEVICE_ATTR(hbm, S_IRUGO | S_IWUSR | S_IWGRP, mdss_livedisplay_get_hbm, mdss_livedisplay_set_hbm);
+static DEVICE_ATTR(night_mode, S_IRUGO | S_IWUSR | S_IWGRP, mdss_livedisplay_get_night_mode, mdss_livedisplay_set_night_mode);
 static DEVICE_ATTR(srgb, S_IRUGO | S_IWUSR | S_IWGRP, mdss_livedisplay_get_srgb, mdss_livedisplay_set_srgb);
 static DEVICE_ATTR(SRGB, S_IRUGO | S_IWUSR | S_IWGRP, mdss_livedisplay_get_srgb, mdss_livedisplay_set_srgb);
 static DEVICE_ATTR(dci_p3, S_IRUGO | S_IWUSR | S_IWGRP, mdss_livedisplay_get_dci_p3, mdss_livedisplay_set_dci_p3);
@@ -623,6 +667,15 @@ int mdss_livedisplay_parse_dt(struct device_node *np, struct mdss_panel_info *pi
 				"cm,mdss-livedisplay-hbm-off-cmd", &mlc->hbm_off_cmds_len);
 		if (mlc->hbm_off_cmds_len)
 			mlc->caps |= MODE_HIGH_BRIGHTNESS;
+	}
+
+	mlc->night_mode_on_cmds = of_get_property(np,
+			"qcom,mdss-dsi-panel-night-mode-on-command", &mlc->night_mode_on_cmds_len);
+	if (mlc->night_mode_on_cmds_len) {
+		mlc->night_mode_off_cmds = of_get_property(np,
+				"qcom,mdss-dsi-panel-night-mode-off-command", &mlc->night_mode_off_cmds_len);
+		if (mlc->night_mode_off_cmds_len)
+			mlc->caps |= MODE_NIGHT;
 	}
 
 	mlc->srgb_on_cmds = of_get_property(np,
@@ -705,6 +758,12 @@ int mdss_livedisplay_create_sysfs(struct msm_fb_data_type *mfd)
 
 	if (mlc->caps & MODE_HIGH_BRIGHTNESS) {
 		rc = sysfs_create_file(&mfd->fbi->dev->kobj, &dev_attr_hbm.attr);
+		if (rc)
+			goto sysfs_err;
+	}
+
+	if (mlc->caps & MODE_NIGHT) {
+		rc = sysfs_create_file(&mfd->fbi->dev->kobj, &dev_attr_night_mode.attr);
 		if (rc)
 			goto sysfs_err;
 	}
