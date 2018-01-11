@@ -563,7 +563,9 @@ static DEVICE_ATTR(preset, S_IRUGO | S_IWUSR | S_IWGRP, mdss_livedisplay_get_pre
 static DEVICE_ATTR(num_presets, S_IRUGO, mdss_livedisplay_get_num_presets, NULL);
 static DEVICE_ATTR(hbm, S_IRUGO | S_IWUSR | S_IWGRP, mdss_livedisplay_get_hbm, mdss_livedisplay_set_hbm);
 static DEVICE_ATTR(srgb, S_IRUGO | S_IWUSR | S_IWGRP, mdss_livedisplay_get_srgb, mdss_livedisplay_set_srgb);
+static DEVICE_ATTR(SRGB, S_IRUGO | S_IWUSR | S_IWGRP, mdss_livedisplay_get_srgb, mdss_livedisplay_set_srgb);
 static DEVICE_ATTR(dci_p3, S_IRUGO | S_IWUSR | S_IWGRP, mdss_livedisplay_get_dci_p3, mdss_livedisplay_set_dci_p3);
+static DEVICE_ATTR(DCI_P3, S_IRUGO | S_IWUSR | S_IWGRP, mdss_livedisplay_get_dci_p3, mdss_livedisplay_set_dci_p3);
 
 int mdss_livedisplay_parse_dt(struct device_node *np, struct mdss_panel_info *pinfo)
 {
@@ -711,10 +713,18 @@ int mdss_livedisplay_create_sysfs(struct msm_fb_data_type *mfd)
 		rc = sysfs_create_file(&mfd->fbi->dev->kobj, &dev_attr_srgb.attr);
 		if (rc)
 			goto sysfs_err;
+
+		rc = sysfs_create_file(&mfd->fbi->dev->kobj, &dev_attr_SRGB.attr);
+		if (rc)
+			goto sysfs_err;
 	}
 
 	if (mlc->caps & MODE_DCI_P3) {
 		rc = sysfs_create_file(&mfd->fbi->dev->kobj, &dev_attr_dci_p3.attr);
+		if (rc)
+			goto sysfs_err;
+
+		rc = sysfs_create_file(&mfd->fbi->dev->kobj, &dev_attr_DCI_P3.attr);
 		if (rc)
 			goto sysfs_err;
 	}
