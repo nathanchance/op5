@@ -1940,6 +1940,7 @@ int fb_new_modelist(struct fb_info *info)
 
 MODULE_LICENSE("GPL");
 
+#ifdef CONFIG_CPU_FREQ_ONEPLUS_QOS
 static int fb_state_change(struct notifier_block *nb,
 	unsigned long val, void *data)
 {
@@ -2025,3 +2026,4 @@ static int __init lcdscreen_speedup_init_pm_qos(void)
 	return 0;
 }
 late_initcall(lcdscreen_speedup_init_pm_qos);
+#endif

@@ -200,7 +200,9 @@ void thaw_fingerprintd(void)
 	pm_nosig_freezing = false;
 	if (fp_irq_cnt) {
 		fp_irq_cnt = false;
+#ifdef CONFIG_CPU_FREQ_ONEPLUS_QOS
 		c1_cpufreq_limit_queue();
+#endif
 	}
 	read_lock(&tasklist_lock);
 	for_each_process_thread(g, p) {
