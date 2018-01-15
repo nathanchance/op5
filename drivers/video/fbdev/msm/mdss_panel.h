@@ -968,6 +968,10 @@ struct mdss_panel_info {
 
 	/* esc clk recommended for the panel */
 	u32 esc_clk_rate_hz;
+
+#ifdef CONFIG_CUSTOM_ROM
+	u32 panel_type;
+#endif
 };
 
 struct mdss_panel_timing {
