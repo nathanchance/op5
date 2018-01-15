@@ -246,11 +246,19 @@ static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 
 	pr_debug("%s: level=%d\n", __func__, level);
 
+#ifdef CONFIG_CUSTOM_ROM
+	if (pinfo->panel_type) {
+#else
 	if (ctrl->bklt_max > 255) {
+#endif
 		u8 ldata = 0;
 		u8 hdata = 0;
 
+#ifdef CONFIG_CUSTOM_ROM
+		if (pinfo->panel_type == 2) {
+#else
 		if (ctrl->bl_high2bit) {
+#endif
 			ldata = level & 0x0ff;
 			hdata = (level >> 8) & 0x03;
 			led_pwm2[2] = ldata;
@@ -267,7 +275,11 @@ static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 
 	memset(&cmdreq, 0, sizeof(cmdreq));
 
+#ifdef CONFIG_CUSTOM_ROM
+	if (pinfo->panel_type)
+#else
 	if (ctrl->bklt_max > 255)
+#endif
 		cmdreq.cmds = &backlight_cmd2;
 	else
 		cmdreq.cmds = &backlight_cmd;
@@ -3681,6 +3693,15 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	if (rc)
 		pinfo->esc_clk_rate_hz = MDSS_DSI_MAX_ESC_CLK_RATE_HZ;
 	pr_debug("%s: esc clk %d\n", __func__, pinfo->esc_clk_rate_hz);
+
+#ifdef CONFIG_CUSTOM_ROM
+	rc = of_property_read_u32(np,
+		"oneplus,panel-type", &tmp);
+	if (!rc)
+		pinfo->panel_type = tmp;
+	else
+		pinfo->panel_type = 0;
+#endif
 
 #ifdef CONFIG_LIVE_DISPLAY
 	mdss_livedisplay_parse_dt(np, pinfo);

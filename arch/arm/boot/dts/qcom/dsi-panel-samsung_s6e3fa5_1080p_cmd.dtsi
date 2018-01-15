@@ -17,6 +17,7 @@
  *---------------------------------------------------------------------------*/
 &mdss_mdp {
 	dsi_samsung_s6e3fa5_1080p_cmd: qcom,mdss_dsi_samsung_s6e3fa5_1080p_cmd {
+		oneplus,panel-type = <0>;
 		qcom,cont-splash-enabled;
 		qcom,mdss-dsi-panel-name = "samsung s6e3fa5 1080p cmd mode dsi panel";
 		qcom,mdss-dsi-panel-manufacture = "SAMSUNG";
