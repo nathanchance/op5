@@ -111,7 +111,7 @@ enum {
 	MODE_NIGHT		= 0x040,
 	MODE_SRGB		= 0x080,
 	MODE_DCI_P3		= 0x100,
-	MODE_UPDATE_ALL		= 0x0FF,
+	MODE_UPDATE_ALL		= 0xFFF,
 };
 
 int mdss_livedisplay_update(struct mdss_dsi_ctrl_pdata *ctrl_pdata, int types);
