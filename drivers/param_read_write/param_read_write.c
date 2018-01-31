@@ -206,33 +206,19 @@ module_param_call(param_test, param_set_test, param_get_int, &param_test, 0644);
 static int is_angela = 0;
 static int param_set_angela(const char *val, struct kernel_param *kp)
 {
-	int is_angela_in_ufs = 0;
-	uint32 sid_index= PARAM_SID_SALEINFO;
+	uint32 sid_index = PARAM_SID_SALEINFO;
 	uint32 offset = offsetof(param_saleinfo_t, is_angela);
-
-	get_param_by_index_and_offset(sid_index,offset, &is_angela_in_ufs, sizeof(is_angela_in_ufs));
-
-	sscanf(val, "%d", &is_angela);
-	if(is_angela_in_ufs != is_angela)
-		set_param_by_index_and_offset(sid_index,offset, &is_angela, sizeof(is_angela));
+	set_param_by_index_and_offset(sid_index,offset, &is_angela, sizeof(is_angela));
 
 	return 0;
 }
 
 static int param_get_angela(char *val, struct kernel_param *kp)
 {
-
-	int cnt = 0;
-	uint32 sid_index= PARAM_SID_SALEINFO;
-	uint32 offset = offsetof(param_saleinfo_t, is_angela);
-
-	get_param_by_index_and_offset(sid_index,offset, &is_angela, sizeof(is_angela));
-	cnt = sprintf(val, "%d", is_angela);
-
-	return cnt;
+	return 0;
 }
 
-module_param_call(is_angela, param_set_angela, param_get_angela, &is_angela, 0644);
+module_param_call(is_angela, param_set_angela, param_get_angela, &is_angela, 0444);
 
 // Anderson, 2016/08/03, Add boot_stage and data_stage flag
 static int data_stage = 0;
