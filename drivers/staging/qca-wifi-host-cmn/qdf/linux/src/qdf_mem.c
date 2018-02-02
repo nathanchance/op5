@@ -931,6 +931,7 @@ static void qdf_mem_debug_exit(void)
 	qdf_net_buf_debug_exit();
 	qdf_mem_debug_clean();
 	qdf_list_destroy(&qdf_mem_list);
+	qdf_spinlock_destroy(&qdf_mem_list_lock);
 }
 
 /**
@@ -1082,8 +1083,6 @@ void qdf_mem_free(void *ptr)
 	if (qdf_mem_prealloc_put(ptr))
 		return;
 
-	if (!qdf_atomic_dec_and_test(&mem_struct->in_use))
-		return;
 
 	qdf_spin_lock_irqsave(&qdf_mem_list_lock);
 
@@ -1112,6 +1111,11 @@ void qdf_mem_free(void *ptr)
 	if (qdf_mem_cmp((uint8_t *) ptr + mem_struct->size,
 			&WLAN_MEM_TAIL[0], sizeof(WLAN_MEM_TAIL)))
 		goto error;
+
+	if (!qdf_atomic_dec_and_test(&mem_struct->in_use)) {
+		qdf_spin_unlock_irqrestore(&qdf_mem_list_lock);
+		return;
+	}
 
 	/*
 	 * make the node an empty list before doing the spin unlock
@@ -1396,7 +1400,7 @@ void qdf_mem_copy(void *dst_addr, const void *src_addr, uint32_t num_bytes)
 
 	if ((dst_addr == NULL) || (src_addr == NULL)) {
 		QDF_TRACE(QDF_MODULE_ID_QDF, QDF_TRACE_LEVEL_ERROR,
-			  "%s called with NULL parameter, source:%p destination:%p",
+			  "%s called with NULL parameter, source:%pK destination:%pK",
 			  __func__, src_addr, dst_addr);
 		QDF_ASSERT(0);
 		return;
@@ -1470,7 +1474,7 @@ void qdf_mem_move(void *dst_addr, const void *src_addr, uint32_t num_bytes)
 
 	if ((dst_addr == NULL) || (src_addr == NULL)) {
 		QDF_TRACE(QDF_MODULE_ID_QDF, QDF_TRACE_LEVEL_ERROR,
-			  "%s called with NULL parameter, source:%p destination:%p",
+			  "%s called with NULL parameter, source:%pK destination:%pK",
 			  __func__, src_addr, dst_addr);
 		QDF_ASSERT(0);
 		return;
