@@ -233,8 +233,6 @@
 			qcom,ulps-enabled;
 			qcom,suspend-ulps-enabled;
 			qcom,panel-allow-phy-poweroff;
-			qcom,partial-update-enabled = "single_roi";
-			qcom,panel-roi-alignment = <1080 8 1080 8 1080 8>;
 
 		cm,mdss-livedisplay-cabc-cmd = [
 				15 01 00 00 00 00 02 55 00];
