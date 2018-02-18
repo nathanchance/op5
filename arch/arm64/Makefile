@@ -35,7 +35,11 @@ $(warning LSE atomics not supported by binutils)
 endif
 
 ifeq ($(cc-name),clang)
+ifneq ($(NEEDS_CLANG_HACKS),false)
 KBUILD_CFLAGS	+= -mno-implicit-float
+else
+KBUILD_CFLAGS	+= -mgeneral-regs-only
+endif
 else
 KBUILD_CFLAGS	+= -mgeneral-regs-only
 endif
