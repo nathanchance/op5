@@ -1053,19 +1053,6 @@ prepare0: archprepare
 # All the preparing..
 prepare: prepare0
 
-# Error out if FORTIFY_SOURCE is not supported (right now, just GCC 4.9)
-ifeq ($(cc-name), gcc)
-  ifdef CONFIG_FORTIFY_SOURCE
-    ifneq ($(call gcc-ifversion, -gt, 0409, y), y)
-	@echo Cannot use CONFIG_FORTIFY_SOURCE with this configuration! >&2
-	@echo Do one of the following: >&2
-	@echo 1. Compile without CONFIG_FORTIFY_SOURCE >&2
-	@echo 2. Compile with an updated version of GCC, preferably 7.x >&2
-	@echo 3. Compile with Clang 5.0 or later >&2 && exit 1
-    endif
-  endif
-endif
-
 # Generate some files
 # ---------------------------------------------------------------------------
 
