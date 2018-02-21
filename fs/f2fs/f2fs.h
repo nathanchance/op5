@@ -133,11 +133,6 @@ static inline bool wq_has_sleeper(wait_queue_head_t *wq)
 	return waitqueue_active(wq);/*waitqueue_active*/
 }
 
-static inline void inode_nohighmem(struct inode *inode)
-{
-	mapping_set_gfp_mask(inode->i_mapping, GFP_USER);
-}
-
 /**
  * current_time - Return FS time
  * @inode: inode.
