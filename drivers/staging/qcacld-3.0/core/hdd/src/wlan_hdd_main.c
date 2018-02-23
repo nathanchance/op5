@@ -1591,6 +1591,9 @@ void hdd_update_tgt_cfg(void *context, void *param)
 	hdd_ctx->config->is_fils_roaming_supported =
 			cfg->services.is_fils_roaming_supported;
 
+	hdd_ctx->config->is_11k_offload_supported =
+			cfg->services.is_11k_offload_supported;
+
 	/* now overwrite the target band capability with INI
 	 * setting if INI setting is a subset
 	 */
@@ -10138,6 +10141,15 @@ static void hdd_get_nud_stats_cb(void *data, struct rsp_stats *rsp)
 	adapter->dad |= rsp->dad_detected;
 	adapter->con_status = rsp->connect_status;
 
+	/* Flag true indicates connectivity check stats present. */
+	if (rsp->connect_stats_present) {
+		hdd_notice("rsp->tcp_ack_recvd :%x", rsp->tcp_ack_recvd);
+		hdd_notice("rsp->icmpv4_rsp_recvd :%x", rsp->icmpv4_rsp_recvd);
+		adapter->hdd_stats.hdd_tcp_stats.rx_fw_cnt = rsp->tcp_ack_recvd;
+		adapter->hdd_stats.hdd_icmpv4_stats.rx_fw_cnt =
+							rsp->icmpv4_rsp_recvd;
+	}
+
 	spin_lock(&hdd_context_lock);
 	context = &hdd_ctx->nud_stats_context;
 	complete(&context->response_event);
@@ -11271,28 +11283,6 @@ static void wlan_hdd_state_ctrl_param_destroy(void)
 	pr_info("Device node unregistered");
 }
 
-#ifndef MODULE
-static int hdd_wait_for_probe_complete(void)
-{
-	unsigned long rc;
-
-	rc = wait_for_completion_timeout(&wlan_start_comp,
-				msecs_to_jiffies(HDD_WLAN_START_WAIT_TIME));
-
-	if (!rc) {
-		hdd_alert("Timed-out waiting for Probe to complete");
-		return -ETIMEDOUT;
-	}
-
-	return 0;
-}
-#else
-static int hdd_wait_for_probe_complete(void)
-{
-	return 0;
-}
-#endif
-
 /**
  * __hdd_module_init - Module init helper
  *
@@ -11332,12 +11322,6 @@ static int __hdd_module_init(void)
 	if (ret) {
 		pr_err("%s: driver load failure, err %d\n", WLAN_MODULE_NAME,
 			ret);
-		goto out;
-	}
-
-	if (hdd_wait_for_probe_complete()) {
-		pr_err("%s: probe of the driver failed!", __func__);
-		wlan_hdd_unregister_driver();
 		goto out;
 	}
 
@@ -11402,7 +11386,6 @@ static ssize_t wlan_boot_cb(struct kobject *kobj,
 		return -EALREADY;
 	}
 
-	init_completion(&wlan_start_comp);
 	if (__hdd_module_init()) {
 		pr_err("%s: wlan driver initialization failed\n", __func__);
 		return -EIO;
@@ -11504,6 +11487,7 @@ static int wlan_deinit_sysfs(void)
 	hdd_sysfs_cleanup();
 	return 0;
 }
+
 #endif /* MODULE */
 
 #ifdef MODULE
