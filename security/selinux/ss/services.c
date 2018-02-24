@@ -1422,11 +1422,8 @@ static int security_context_to_sid_core(const char *scontext, u32 scontext_len,
 
 	/* Copy the string so that we can modify the copy as we parse it. */
 	scontext2 = kmalloc(scontext_len + 1, gfp_flags);
-	if (!scontext2) {
-	pr_err("%s: kmalloc failed for \'%s\' with len: %u\n",
-	__func__, scontext, scontext_len);
+	if (!scontext2)
 		return -ENOMEM;
-	}
 	memcpy(scontext2, scontext, scontext_len);
 	scontext2[scontext_len] = 0;
 
@@ -1434,11 +1431,8 @@ static int security_context_to_sid_core(const char *scontext, u32 scontext_len,
 		/* Save another copy for storing in uninterpreted form */
 		rc = -ENOMEM;
 		str = kstrdup(scontext2, gfp_flags);
-		if (!str) {
-		pr_err("%s: kstrdup failed for \'%s\' with len: %u\n",
-		__func__, scontext2, scontext_len);
+		if (!str)
 			goto out;
-		}
 	}
 
 	read_lock(&policy_rwlock);
@@ -2034,8 +2028,6 @@ int security_load_policy(void *data, size_t len)
 	}
 	newpolicydb = oldpolicydb + 1;
 
-	pr_err("SELinux: security_load_policy,ss_initialized: %d\n",
-		ss_initialized);
 	if (!ss_initialized) {
 		avtab_cache_init();
 		rc = policydb_read(&policydb, fp);
@@ -2084,13 +2076,13 @@ int security_load_policy(void *data, size_t len)
 	newpolicydb->len = len;
 	/* If switching between different policy types, log MLS status */
 	if (policydb.mls_enabled && !newpolicydb->mls_enabled)
-		pr_err("SELinux: Disabling MLS support...\n");
+		printk(KERN_INFO "SELinux: Disabling MLS support...\n");
 	else if (!policydb.mls_enabled && newpolicydb->mls_enabled)
-		pr_err("SELinux: Enabling MLS support...\n");
+		printk(KERN_INFO "SELinux: Enabling MLS support...\n");
 
 	rc = policydb_load_isids(newpolicydb, &newsidtab);
 	if (rc) {
-		pr_err("SELinux:  unable to load the initial SIDs\n");
+		printk(KERN_ERR "SELinux:  unable to load the initial SIDs\n");
 		policydb_destroy(newpolicydb);
 		goto out;
 	}
@@ -2101,7 +2093,7 @@ int security_load_policy(void *data, size_t len)
 
 	rc = security_preserve_bools(newpolicydb);
 	if (rc) {
-		pr_err("SELinux:  unable to preserve booleans\n");
+		printk(KERN_ERR "SELinux:  unable to preserve booleans\n");
 		goto err;
 	}
 
@@ -2109,10 +2101,8 @@ int security_load_policy(void *data, size_t len)
 	sidtab_shutdown(&sidtab);
 
 	rc = sidtab_map(&sidtab, clone_sid, &newsidtab);
-	if (rc) {
-		pr_err("SELinux: sidtab_map failed: %d\n", rc);
+	if (rc)
 		goto err;
-	}
 
 	/*
 	 * Convert the internal representations of contexts
@@ -2122,7 +2112,7 @@ int security_load_policy(void *data, size_t len)
 	args.newp = newpolicydb;
 	rc = sidtab_map(&newsidtab, convert_context, &args);
 	if (rc) {
-		pr_err("SELinux:  unable to convert the internal"
+		printk(KERN_ERR "SELinux:  unable to convert the internal"
 			" representation of contexts in the new SID"
 			" table\n");
 		goto err;
@@ -2164,8 +2154,6 @@ err:
 
 out:
 	kfree(oldpolicydb);
-	pr_err("SELinux: security_load_policy, sidtab.shutdown: %d\n",
-		sidtab.shutdown);
 	return rc;
 }
 
