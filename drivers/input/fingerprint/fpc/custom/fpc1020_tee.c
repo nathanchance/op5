@@ -53,7 +53,7 @@
 #endif
 
 #include <linux/project_info.h>
-#include "../fingerprint_detect/fingerprint_detect.h"
+#include "../../fingerprint_detect/fingerprint_detect.h"
 
 static unsigned int ignor_home_for_ESD = 0;
 module_param(ignor_home_for_ESD, uint, S_IRUGO | S_IWUSR);

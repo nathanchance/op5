@@ -54,9 +54,9 @@
 
 #include <linux/input/mt.h>
 
-#include "synaptics_redremote.h"
+#include "../synaptics_redremote.h"
 #include <linux/project_info.h>
-#include "synaptics_baseline.h"
+#include "../synaptics_baseline.h"
 
 #include <linux/moduleparam.h>
 
@@ -2952,7 +2952,7 @@ static int	synaptics_input_init(struct synaptics_ts_data *ts)
 	return 0;
 }
 
-#include "fw_update_v7.if"
+#include "../fw_update_v7.if"
 static int check_hardware_version(struct device *dev)
 {
 	int ret;
