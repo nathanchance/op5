@@ -84,6 +84,8 @@
 		qcom,mdss-dsi-dma-trigger = "trigger_sw";
 		qcom,mdss-dsi-mdp-trigger = "trigger_sw";
 		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+		qcom,mdss-dsi-lp11-init;
+		qcom,mdss-dsi-init-delay-us = <10000>;
 		qcom,mdss-dsi-reset-sequence = <1 2>,<0 2>, <1 2>;
 		/*qcom,mdss-dsi-panel-inverted;*/
 		qcom,mdss-pan-physical-width-dimension = <68>;
@@ -207,8 +209,5 @@
 				];
 			qcom,mdss-dsi-adaption-mode-command-state = "dsi_hs_mode";
 /**************************************************************************/	
-			qcom,ulps-enabled;
-			qcom,suspend-ulps-enabled;
-			qcom,panel-allow-phy-poweroff;
 	};
 };
