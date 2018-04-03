@@ -334,7 +334,6 @@ static int snd_usb_create_streams(struct snd_usb_audio *chip, int ctrlif)
 			return -EINVAL;
 		}
 
-
 		h1 = control_header;
 
 		if (rest_bytes < sizeof(*h1)) {
