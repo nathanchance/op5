@@ -201,18 +201,13 @@ int diag_md_write(int id, unsigned char *buf, int len, int ctx)
 			continue;
 
 		found = 1;
-		if (!(driver->data_ready[i] & USER_SPACE_DATA_TYPE)) {
-			driver->data_ready[i] |= USER_SPACE_DATA_TYPE;
-			atomic_inc(&driver->data_ready_notif[i]);
-		}
+		driver->data_ready[i] |= USER_SPACE_DATA_TYPE;
 		pr_debug("diag: wake up logging process\n");
 		wake_up_interruptible(&driver->wait_q);
 	}
 
-	if (!found) {
-		diag_ws_on_copy_fail(DIAG_WS_MUX);
+	if (!found)
 		return -EINVAL;
-	}
 
 	return 0;
 }

@@ -2637,6 +2637,12 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	 * sent before kickoff completes so that backlight
 	 * update happens after it.
 	 */
+	if (mdss_fb_is_power_off(mfd) &&
+		mfd->panel_info->type == MIPI_CMD_PANEL) {
+		pr_debug("wait for pp done after resume for cmd mode\n");
+		mdss_mdp_display_wait4pingpong(ctl, true);
+	}
+
 	/*
 	 * Configure Timing Engine, if new fps was set.
 	 * We need to do this after the wait for vsync
@@ -3294,14 +3300,12 @@ int mdss_mdp_overlay_vsync_ctrl(struct msm_fb_data_type *mfd, int en)
 		goto end;
 	}
 
-	mdp5_data->vsync_en = en;
-
 	if (!ctl->panel_data->panel_info.cont_splash_enabled
 		&& (!mdss_mdp_ctl_is_power_on(ctl) ||
 		mdss_panel_is_power_on_ulp(ctl->power_state))) {
 		pr_debug("fb%d vsync pending first update en=%d, ctl power state:%d\n",
 				mfd->index, en, ctl->power_state);
-		rc = 0;
+		rc = -EPERM;
 		goto end;
 	}
 
@@ -5748,13 +5752,6 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 	}
 
 panel_on:
-	if (mdp5_data->vsync_en) {
-		pr_info("reenabling vsync for fb%d\n", mfd->index);
-		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-		rc = ctl->ops.add_vsync_handler(ctl, &ctl->vsync_handler);
-		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
-	}
-
 	if (IS_ERR_VALUE(rc)) {
 		pr_err("Failed to turn on fb%d\n", mfd->index);
 		mdss_mdp_overlay_off(mfd);
@@ -6579,7 +6576,6 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 		}
 	}
 	mfd->mdp_sync_pt_data.async_wait_fences = true;
-	mdp5_data->vsync_en = false;
 
 	pm_runtime_set_suspended(&mfd->pdev->dev);
 	pm_runtime_enable(&mfd->pdev->dev);
