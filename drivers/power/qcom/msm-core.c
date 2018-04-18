@@ -118,7 +118,9 @@ ALLOCATE_2D_ARRAY(uint32_t);
  * Userspace checks for the presence of poll_ms and disabled, so keep them
  * even when ENABLE_TSENS_SAMPLING isn't used.
  */
+#ifdef ENABLE_TSENS_SAMPLING
 static __read_mostly int poll_ms;
+#endif
 static __read_mostly int poll_ms_dummy;
 module_param_named(polling_interval, poll_ms_dummy, int,
 		S_IRUGO | S_IWUSR | S_IWGRP);
