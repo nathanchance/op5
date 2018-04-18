@@ -3102,6 +3102,7 @@ static ssize_t gsi_info_show(struct config_item *item, char *page)
 
 CONFIGFS_ATTR_RO(gsi_, info);
 
+#if 0
 static ssize_t gsi_rndis_wceis_show(struct config_item *item, char *page)
 {
 	struct f_gsi *gsi = to_gsi_opts(item)->gsi;
@@ -3136,6 +3137,7 @@ static struct config_item_type gsi_func_rndis_type = {
 	.ct_attrs	= gsi_rndis_attrs,
 	.ct_owner	= THIS_MODULE,
 };
+#endif
 
 
 static struct configfs_attribute *gsi_attrs[] = {
