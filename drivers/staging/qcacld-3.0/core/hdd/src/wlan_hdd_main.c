@@ -3534,6 +3534,17 @@ int hdd_set_fw_params(hdd_adapter_t *adapter)
 		hdd_err("Failed to set LPRx");
 		goto error;
 	}
+
+	ret = sme_cli_set_command(
+			adapter->sessionId,
+			WMI_PDEV_PARAM_TX_SCH_DELAY,
+			hdd_ctx->config->enable_tx_sch_delay,
+			PDEV_CMD);
+	if (ret) {
+		hdd_err("Failed to set WMI_PDEV_PARAM_TX_SCH_DELAY");
+		goto error;
+	}
+
 	if (adapter->device_mode == QDF_STA_MODE) {
 		sme_set_smps_cfg(adapter->sessionId,
 					HDD_STA_SMPS_PARAM_UPPER_BRSSI_THRESH,
@@ -4097,9 +4108,14 @@ QDF_STATUS hdd_stop_adapter(hdd_context_t *hdd_ctx, hdd_adapter_t *adapter,
 					hdd_ctx->hHal,
 					adapter->sessionId,
 					eCSR_DISCONNECT_REASON_IBSS_LEAVE);
-			else if (QDF_STA_MODE == adapter->device_mode)
+			else if (QDF_STA_MODE == adapter->device_mode) {
 				qdf_ret_status =
 					wlan_hdd_try_disconnect(adapter);
+				hdd_debug("Send disconnected event to userspace");
+				wlan_hdd_cfg80211_indicate_disconnect(
+					adapter->dev, true,
+					WLAN_REASON_UNSPECIFIED);
+			}
 			else
 				qdf_ret_status = sme_roam_disconnect(
 					hdd_ctx->hHal,
