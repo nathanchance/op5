@@ -242,8 +242,6 @@ static int ext4_init_block_bitmap(struct super_block *sb,
 	 */
 	ext4_mark_bitmap_end(num_clusters_in_group(sb, block_group),
 			     sb->s_blocksize * 8, bh->b_data);
-	ext4_block_bitmap_csum_set(sb, block_group, gdp, bh);
-	ext4_group_desc_csum_set(sb, block_group, gdp);
 	return 0;
 }
 
@@ -339,20 +337,16 @@ static ext4_fsblk_t ext4_valid_block_bitmap(struct super_block *sb,
 	/* check whether block bitmap block number is set */
 	blk = ext4_block_bitmap(sb, desc);
 	offset = blk - group_first_block;
-	if (!ext4_test_bit(EXT4_B2C(sbi, offset), bh->b_data)) {
+	if (!ext4_test_bit(EXT4_B2C(sbi, offset), bh->b_data))
 		/* bad block bitmap */
-		pr_err("ext4_valid_block_bitmap: ext4_block_bitmap: bad block bitmap!\n");
 		return blk;
-	}
 
 	/* check whether the inode bitmap block number is set */
 	blk = ext4_inode_bitmap(sb, desc);
 	offset = blk - group_first_block;
-	if (!ext4_test_bit(EXT4_B2C(sbi, offset), bh->b_data)) {
+	if (!ext4_test_bit(EXT4_B2C(sbi, offset), bh->b_data))
 		/* bad block bitmap */
-		pr_err("ext4_valid_block_bitmap: ext4_inode_bitmap: bad block bitmap!\n");
 		return blk;
-	}
 
 	/* check whether the inode table block number is set */
 	blk = ext4_inode_table(sb, desc);
@@ -361,11 +355,9 @@ static ext4_fsblk_t ext4_valid_block_bitmap(struct super_block *sb,
 			EXT4_B2C(sbi, offset + EXT4_SB(sb)->s_itb_per_group),
 			EXT4_B2C(sbi, offset));
 	if (next_zero_bit <
-	    EXT4_B2C(sbi, offset + EXT4_SB(sb)->s_itb_per_group)) {
+	    EXT4_B2C(sbi, offset + EXT4_SB(sb)->s_itb_per_group))
 		/* bad bitmap for inode tables */
-		pr_err("ext4_valid_block_bitmap: ext4_inode_table: bad block bitmap!\n");
 		return blk;
-	}
 	return 0;
 }
 
@@ -453,6 +445,7 @@ ext4_read_block_bitmap_nowait(struct super_block *sb, ext4_group_t block_group)
 		err = ext4_init_block_bitmap(sb, bh, block_group, desc);
 		set_bitmap_uptodate(bh);
 		set_buffer_uptodate(bh);
+		set_buffer_verified(bh);
 		ext4_unlock_group(sb, block_group);
 		unlock_buffer(bh);
 		if (err) {
