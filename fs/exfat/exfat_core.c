@@ -2156,7 +2156,9 @@ s32 load_alloc_bitmap(struct super_block *sb)
 
 				p_fs->map_sectors = ((map_size-1) >> p_bd->sector_size_bits) + 1;
 
-				p_fs->vol_amap = (struct buffer_head **) kmalloc(sizeof(struct buffer_head *) * p_fs->map_sectors, GFP_KERNEL);
+				p_fs->vol_amap = (struct buffer_head **) kmalloc_array(p_fs->map_sectors,
+										       sizeof(struct buffer_head *),
+										       GFP_KERNEL);
 				if (p_fs->vol_amap == NULL)
 					return FFS_MEMORYERR;
 
@@ -2327,7 +2329,9 @@ s32 __load_upcase_table(struct super_block *sb, u32 sector, u32 num_sectors, u32
 
 	u32 checksum = 0;
 
-	upcase_table = p_fs->vol_utbl = (u16 **) kmalloc(UTBL_COL_COUNT * sizeof(u16 *), GFP_KERNEL);
+	upcase_table = p_fs->vol_utbl = (u16 **) kmalloc_array(UTBL_COL_COUNT,
+							       sizeof(u16 *),
+							       GFP_KERNEL);
 	if (upcase_table == NULL)
 		return FFS_MEMORYERR;
 	memset(upcase_table, 0, UTBL_COL_COUNT * sizeof(u16 *));
@@ -2362,7 +2366,9 @@ s32 __load_upcase_table(struct super_block *sb, u32 sector, u32 num_sectors, u32
 
 				if (upcase_table[col_index] == NULL) {
 					DPRINTK("alloc = 0x%X\n", col_index);
-					upcase_table[col_index] = (u16 *) kmalloc(UTBL_ROW_COUNT * sizeof(u16), GFP_KERNEL);
+					upcase_table[col_index] = (u16 *) kmalloc_array(UTBL_ROW_COUNT,
+											sizeof(u16),
+											GFP_KERNEL);
 					if (upcase_table[col_index] == NULL) {
 						ret = FFS_MEMORYERR;
 						goto error;
@@ -2401,7 +2407,9 @@ s32 __load_default_upcase_table(struct super_block *sb)
 	u16	uni = 0;
 	u16 **upcase_table;
 
-	upcase_table = p_fs->vol_utbl = (u16 **) kmalloc(UTBL_COL_COUNT * sizeof(u16 *), GFP_KERNEL);
+	upcase_table = p_fs->vol_utbl = (u16 **) kmalloc_array(UTBL_COL_COUNT,
+							       sizeof(u16 *),
+							       GFP_KERNEL);
 	if (upcase_table == NULL)
 		return FFS_MEMORYERR;
 	memset(upcase_table, 0, UTBL_COL_COUNT * sizeof(u16 *));
@@ -2422,7 +2430,9 @@ s32 __load_default_upcase_table(struct super_block *sb)
 
 			if (upcase_table[col_index] == NULL) {
 				DPRINTK("alloc = 0x%X\n", col_index);
-				upcase_table[col_index] = (u16 *) kmalloc(UTBL_ROW_COUNT * sizeof(u16), GFP_KERNEL);
+				upcase_table[col_index] = (u16 *) kmalloc_array(UTBL_ROW_COUNT,
+										sizeof(u16),
+										GFP_KERNEL);
 				if (upcase_table[col_index] == NULL) {
 					ret = FFS_MEMORYERR;
 					goto error;
