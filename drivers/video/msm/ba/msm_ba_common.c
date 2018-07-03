@@ -519,8 +519,8 @@ static struct v4l2_ctrl **msm_ba_get_super_cluster(struct msm_ba_inst *inst,
 	if (!size || !inst)
 		return NULL;
 
-	cluster = kmalloc(sizeof(struct v4l2_ctrl *) *
-			BA_NUM_CTRLS, GFP_KERNEL);
+	cluster = kmalloc_array(BA_NUM_CTRLS, sizeof(struct v4l2_ctrl *),
+				GFP_KERNEL);
 
 	if (!cluster)
 		return NULL;
@@ -550,7 +550,7 @@ int msm_ba_ctrl_init(struct msm_ba_inst *inst)
 		return -EINVAL;
 	}
 
-	inst->ctrls = kzalloc(sizeof(struct v4l2_ctrl *) * BA_NUM_CTRLS,
+	inst->ctrls = kcalloc(BA_NUM_CTRLS, sizeof(struct v4l2_ctrl *),
 				GFP_KERNEL);
 	if (!inst->ctrls) {
 		dprintk(BA_ERR, "%s - failed to allocate ctrl", __func__);

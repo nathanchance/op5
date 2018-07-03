@@ -90,8 +90,8 @@ static int parse_dsi_cmds(struct mdss_livedisplay_ctx *mlc,
 		goto exit_free;
 	}
 
-	pcmds->cmds = kzalloc(cnt * sizeof(struct dsi_cmd_desc),
-			GFP_KERNEL);
+	pcmds->cmds = kcalloc(cnt, sizeof(struct dsi_cmd_desc),
+			      GFP_KERNEL);
 	if (!pcmds->cmds)
 		goto exit_free;
 
